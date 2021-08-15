@@ -87,7 +87,3 @@ public class ShvaMistakeEntity {
 		this.bankEntity = bankEntity;
 	}
 	
-
-		
-    
-}
