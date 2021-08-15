@@ -49,8 +49,6 @@ public class SettlementApplication implements SchedulingConfigurer {
 	public static void main(String[] args) {
 		SpringApplication.run(SettlementApplication.class, args);
 	}
-	
-
 
 	@Bean
 	public CommandLineRunner commandLineRunner(ApplicationContext ctx) {
