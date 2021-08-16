@@ -7,7 +7,7 @@ DROP TABLE IF EXISTS etl_user_group;
 DROP TABLE IF EXISTS etl_group;
 DROP TABLE IF EXISTS etl_user;
 DROP TABLE IF EXISTS etl_to_group;
-
+DROP TABLE IF EXISTS shva_log_approve;
 
 CREATE TABLE bank (
   id INTEGER   PRIMARY KEY ,
@@ -77,4 +77,14 @@ insert into   bank(id,name) value ( 12,'Poalim');
 
 insert into   etl(id,bank_id,name,description,folder,schedule_crone) values( null,12,'Poalim_etl','Poalim',"C:\\videoturnstile\\data","20 * * * * ?");
 insert into   etl(id,bank_id,name,description,folder,schedule_crone) values( null,10,'Leumi_etl','Leumi',"C:\\videoturnstile\\data","50 * * * * ?");
+  
+CREATE TABLE shva_log_approve (
+  id INTEGER   PRIMARY KEY ,
+  rec_type INTEGER NOT NULL,
+  format_code VARCHAR(1),
+  ixx_date VARCHAR(6),
+  ixx_time VARCHAR(6)
+ );
+
+  
   

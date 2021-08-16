@@ -17,6 +17,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Scope;
 import org.springframework.scheduling.Trigger;
 import org.springframework.scheduling.TriggerContext;
@@ -25,14 +26,23 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.SchedulingConfigurer;
 import org.springframework.scheduling.config.ScheduledTaskRegistrar;
 import org.springframework.scheduling.support.CronTrigger;
+import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 
 import com.shva.settlement.dto.ETLDTO;
 import com.shva.settlement.service.ETLService;
 import com.shva.settlement.task.ScheduledTasks;
 
+//import springfox.documentation.builders.PathSelectors;
+//import springfox.documentation.builders.RequestHandlerSelectors;
+//import springfox.documentation.spi.DocumentationType;
+//import springfox.documentation.spring.web.plugins.Docket;
+//import springfox.documentation.swagger2.annotations.EnableSwagger2WebMvc;
+
 @SpringBootApplication
 @EnableAsync
 @EnableScheduling
+//@Configuration
+//@EnableSwagger2WebMvc
 public class SettlementApplication implements SchedulingConfigurer {
 
 	
@@ -44,7 +54,6 @@ public class SettlementApplication implements SchedulingConfigurer {
 	
 	@Autowired
 	ETLService etlService;
-	
 	
 	public static void main(String[] args) {
 		SpringApplication.run(SettlementApplication.class, args);
@@ -90,11 +99,29 @@ public class SettlementApplication implements SchedulingConfigurer {
 		return mapper;
 
 	}
+	
+//    @Bean
+//    public Docket api() { 
+//        return new Docket(DocumentationType.SWAGGER_2)  
+//          .select()                                  
+//          .apis(RequestHandlerSelectors.any())              
+//          .paths(PathSelectors.any())                          
+//          .build();                                           
+//    }	
 
 	@Bean(destroyMethod = "shutdown")
 	public Executor taskExecutor() {
 		return Executors.newScheduledThreadPool(100);
 	}
+	
+//	@Override
+//	public void addResourceHandlers(ResourceHandlerRegistry registry) {
+//	    registry.addResourceHandler("swagger-ui.html")
+//	      .addResourceLocations("classpath:/META-INF/resources/");
+//
+//	    registry.addResourceHandler("/webjars/**")
+//	      .addResourceLocations("classpath:/META-INF/resources/webjars/");
+//	}	
 
 	
 	@Override
