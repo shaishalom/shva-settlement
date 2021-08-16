@@ -86,8 +86,5 @@ public class ShvaMistakeEntity {
 	public void setBankEntity(BankEntity bankEntity) {
 		this.bankEntity = bankEntity;
 	}
-	
-
-		
-    
 }
+	
