@@ -1,2 +1,2 @@
 # shva-settlement
-shva-settlement - infrastructure for settlment product
+shva-settlement - infrastructure for settlement product
