@@ -1,0 +1,67 @@
+1	Issuer-id	1	1	M	pic 9
+2	Rec-Type	1	2	M	pic x
+3	BOI-issuer-id 	3	3	M	pic 9(4) comp-3
+4	Branch	2	6	O	pic 9(3) comp-3
+5	Account-Type	2	8	O	pic 9(3) comp-3
+6	Account	5	10	O	pic 9(9) comp-3
+7	Atm 	4	15	O	pic 9(4)  
+8	Atm-Seq
+	2	19	M
+UID
+PK3	pic 9(4) comp
+9	Transm-Date	4	21	M	pic 9(6) comp-3
+10	Transac-Date	4	25	M
+UID
+PK4	pic 9(6) comp-3
+
+
+11	Time	3	29	M
+UID
+PK5	pic 9(4) comp-3
+
+
+12	Event	1	32	M	pic x
+13	Spec-Service	2	33	O	pic 9(3) comp-3
+14	Amount	6	35	M	pic s9(9)v99 comp-3
+15	Card	5	41	O	pic 9(8) comp-3
+16	Card-Type	4	46	O	pic 9(7) comp-3
+17	Filler [Deposit_seq] 	2	50	O	pic 9(3) comp-3
+18	Confirm-Code	1	52	M	pic x
+19	End-Action-Code	2	53	M	pic 9(2)
+20	Connect-Code	1	55	O	pic 9
+21	Event-Status	4	56	O	pic x(4)
+22	Estimat-Time-Sign	1	60	O	pic 9
+23	Flag-New	1	61	O	pic x                    
+24	Track-2-Data	38	62	M	pic x(38)
+25	Atm-Number	4	100	M
+UID
+PK2	pic 9(4) 
+26	Atm-Branch	3	104	O	pic 9(3)
+27	Reply-Code	2	107	M	pic 9(2)                            
+28	Card-Retain-Reason	1	109	M	pic 9
+29	Transac-Date-New	8	110	M	pic 9(8) 
+
+
+30	Currency	1	118	M	pic 9
+31	ATM-Bank	2	119	M	pic x(2)
+32	Atm-Address	40	121	O	pic x(40) right just   
+33	Atm-Mikud	5	161	O	pic 9(5)
+34	Pin-Verification-Code	1	166	M	pic 9
+35	Authentication-Code	1	167	M	pic 9
+36	Auth-Num	4	168	O	pic 9(7) comp3
+37	Iss-Field	16	172	O	pic x(16)
+38	Card-Reader	1	188	M	pic x
+39	Sc-Status	1	189	M	pic x
+40	T2-Source	1	190	M	pic x
+41	Panseq-Status
+	1	191	O	pic x
+42	Panseq
+	2	192	O	pic x(2)
+43	Commission	7	194	O	pic s9(5)v99  
+44	TP	2	201	M
+UID
+PK1	pic 9(2)
+45	CP	2	203	M	pic 9(2)
+46	Settlement-Flag	1	205	I	pic x
+47	Settlement-info	1	206	I	pic x
+48	Filler	44	207	O	pic x(44)
