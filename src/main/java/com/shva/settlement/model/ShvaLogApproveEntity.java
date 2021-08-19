@@ -10,7 +10,7 @@ import javax.persistence.*;
  */
 @Entity
 @Table(name="shva_log_approve")
-@NamedQuery(name="ShvaLogApprove.findAll", query="SELECT s FROM ShvaLogApprove s")
+@NamedQuery(name="ShvaLogApprove.findAll", query="SELECT s FROM ShvaLogApproveEntity s")
 public class ShvaLogApproveEntity implements Serializable {
 	private static final long serialVersionUID = 1L;
 

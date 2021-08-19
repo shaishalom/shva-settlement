@@ -10,7 +10,7 @@ import javax.persistence.*;
  */
 @Entity
 @Table(name="shva_error_record")
-@NamedQuery(name="ShvaErrorRecord.findAll", query="SELECT s FROM ShvaErrorRecord s")
+@NamedQuery(name="ShvaErrorRecord.findAll", query="SELECT s FROM ShvaErrorRecordEntity s")
 public class ShvaErrorRecordEntity implements Serializable {
 	private static final long serialVersionUID = 1L;
 
