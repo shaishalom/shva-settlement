@@ -11,12 +11,14 @@ import javax.persistence.*;
 @Entity
 @Table(name="shva_log_approve")
 @NamedQuery(name="ShvaLogApprove.findAll", query="SELECT s FROM ShvaLogApprove s")
-public class ShvaLogApprove implements Serializable {
+public class ShvaLogApproveEntity implements Serializable {
 	private static final long serialVersionUID = 1L;
 
 	@Id
 	@GeneratedValue(strategy=GenerationType.IDENTITY)
-	private int id;
+	@Basic(optional = false)
+	@Column(name = "id",unique=true, nullable = false)
+	private Long id;
 
 	private int account;
 
@@ -135,14 +137,14 @@ public class ShvaLogApprove implements Serializable {
 	@Column(name="tran_type")
 	private int tranType;
 
-	public ShvaLogApprove() {
+	public ShvaLogApproveEntity() {
 	}
 
-	public int getId() {
+	public Long getId() {
 		return this.id;
 	}
 
-	public void setId(int id) {
+	public void setId(Long id) {
 		this.id = id;
 	}
 

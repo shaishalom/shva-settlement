@@ -11,13 +11,16 @@ import javax.persistence.*;
 @Entity
 @Table(name="shva_error_record")
 @NamedQuery(name="ShvaErrorRecord.findAll", query="SELECT s FROM ShvaErrorRecord s")
-public class ShvaErrorRecord implements Serializable {
+public class ShvaErrorRecordEntity implements Serializable {
 	private static final long serialVersionUID = 1L;
 
 	@Id
 	@GeneratedValue(strategy=GenerationType.IDENTITY)
-	private String id;
+	@Basic(optional = false)
+	@Column(name = "id",unique=true, nullable = false)
+	private Long id;
 
+	
 	@Column(name="atm_number")
 	private int atmNumber;
 
@@ -49,14 +52,14 @@ public class ShvaErrorRecord implements Serializable {
 	@Column(name="transac_date")
 	private int transacDate;
 
-	public ShvaErrorRecord() {
+	public ShvaErrorRecordEntity() {
 	}
 
-	public String getId() {
+	public Long getId() {
 		return this.id;
 	}
 
-	public void setId(String id) {
+	public void setId(Long id) {
 		this.id = id;
 	}
 
