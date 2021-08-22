@@ -10,7 +10,7 @@ import com.shva.settlement.dto.ShvaLogApproveDTO;
 import com.shva.settlement.model.ShvaErrorRecordEntity;
 import com.shva.settlement.model.ShvaLogApproveEntity;
 
-@Component("shvaLogApproveDTOToShvaErrorRecordEntityConverter")
+@Component("shvaLogApproveDTOToShvaLogApproveEntityConverter")
 public class ShvaLogApproveDTOToShvaLogApproveEntityConverter implements Function<ShvaLogApproveDTO, ShvaErrorRecordEntity> {
 
 	@Autowired

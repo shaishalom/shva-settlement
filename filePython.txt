@@ -1,0 +1,38 @@
+import mysql.connector
+import pandas as pd
+from datetime import datetime
+
+try:
+    connection = mysql.connector.connect(host='localhost',
+                                         database='testdb',
+                                         user='root',
+                                         password='root')
+
+
+    sql_select_Query = "select * from transaction"
+    cursor = connection.cursor()
+    cursor.execute(sql_select_Query)
+    # get all records
+    records = cursor.fetchall()
+    print("Total number of rows in table: ", cursor.rowcount)
+
+    print("\nPrinting each row")
+    for row in records:
+        print("Id = ", row[0], )
+        print("bank_id = ", row[1])
+        print("name  = ", row[2])
+        print("description  = ", row[3])
+        print("amount  = ", row[4])
+        date_time = pd.to_datetime(row[4], format='%Y/%m/%d %H:%M:%S')
+        valueDate=row[5]
+        date_time = valueDate.strftime("%d/%m/%Y %H:%M:%S")
+        #date_time = pd.to_datetime(row[4], format='%d/%m/%Y %H:%M:%S')
+        print("created_date  = ", date_time, "\n")
+
+except mysql.connector.Error as e:
+    print("Error reading data from MySQL table", e)
+finally:
+    if connection.is_connected():
+        connection.close()
+        cursor.close()
+        print("MySQL connection is closed")
