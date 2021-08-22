@@ -63,4 +63,17 @@ if __name__ == '__main__':
     multiPly2Number = a2 * a1
     div2Number = int(a2 / a1)
     print("value of multiply is:"+str(multiPly2Number))
+    
+    --------
+       #with xlrd.open_workbook('c:\\shai\\work\\Book.xlsx') as wb:
+    filename=r'c:\\shai\\work\\Book.xlsx'
+    df=pd.read_excel(filename,"Sheet2")
+    names=list(df['name'])
+    print(names)
+    for myName in names:
+        print(myName)
+    # rows = []
+    # for row in sheet.rows():
+    #     rows.append([cell.value for cell in row])
+    print("shai successfull")
         
