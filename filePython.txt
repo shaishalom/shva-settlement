@@ -36,3 +36,31 @@ finally:
         connection.close()
         cursor.close()
         print("MySQL connection is closed")
+        
+        
+        
+------
+
+if __name__ == '__main__':
+
+    show()
+    print("I'm an excel Reader!")
+
+    #excelReader = ExcelReader()
+    #loc = ("c:\\workspace-python\\ExcelRead\\Book.xls")
+
+    xlsx_file = Path('SimData', 'c:\\workspace-python\\ExcelRead\\Book.xlsx')
+    wb_obj = openpyxl.load_workbook(xlsx_file)
+
+    # Read the active sheet:
+    sheet = wb_obj.active
+    print(sheet["A1"].value)
+    print(sheet["A2"].value)
+    a2=int(sheet["A2"].value)
+    a1 = int(sheet["A1"].value)
+    add2Number=a2+a1
+    subtract2Number = a2 - a1
+    multiPly2Number = a2 * a1
+    div2Number = int(a2 / a1)
+    print("value of multiply is:"+str(multiPly2Number))
+        
