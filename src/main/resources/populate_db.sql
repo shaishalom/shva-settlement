@@ -242,3 +242,13 @@ create table atm_transaction_rec
    Settlement_info varchar (1),
     primary key (`id`)
 );
+
+create table bank_terminator
+(
+   id bigint not null auto_increment,
+   Atm varchar(20),
+   Atm_name integer,
+   ATM_Bank varchar(2) not null,
+   primary key (`id`)
+);
+   
