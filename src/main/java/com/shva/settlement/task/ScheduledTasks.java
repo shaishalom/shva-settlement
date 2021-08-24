@@ -70,6 +70,8 @@ public class ScheduledTasks {
 			System.out.println(dto);
 		});
 		
+		//invoke in parallel the terminators
+		
 		String lineType = env.getProperty("lineType");
 		Date currentDate = new Date();
 		String currentDateStr = StringUtils.getDateAsStringWithPattern(currentDate,"YYMMDD");
