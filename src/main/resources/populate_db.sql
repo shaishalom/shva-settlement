@@ -8,6 +8,7 @@ DROP TABLE IF EXISTS etl_to_group;
 DROP TABLE IF EXISTS shva_log_approve;
 DROP TABLE IF EXISTS shva_error_record;
 DROP TABLE IF EXISTS atm_transaction_rec;
+DROP TABLE IF EXISTS bank_terminator;
 CREATE TABLE bank
 (
    id INTEGER PRIMARY KEY,
@@ -246,9 +247,20 @@ create table atm_transaction_rec
 create table bank_terminator
 (
    id bigint not null auto_increment,
-   Atm varchar(20),
-   Atm_name integer,
-   ATM_Bank varchar(2) not null,
+   terminator_index integer,
+   name varchar(20),
+   bank_code varchar(2) not null,
+   active integer,
    primary key (`id`)
 );
    
+insert into bank_terminator(id,terminator_index,name,bank_code,active) 
+values (1,1,'Hapoalim','12',1);
+
+insert into bank_terminator(id,terminator_index,name,bank_code,active) 
+values (2,2,'Leumi','10',1);
+
+insert into bank_terminator(id,terminator_index,name,bank_code,active) 
+values (3,3,'Yerushalaim','40',0);
+
+

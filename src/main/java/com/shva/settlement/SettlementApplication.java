@@ -133,7 +133,8 @@ public class SettlementApplication implements SchedulingConfigurer {
 		
 			Runnable runnable = () -> {
 				System.out.println("start run....for :"+etoDTO.getName());
-				scheduledTasks.runETLTransaction(etoDTO);
+ 				scheduledTasks.handleATMTransactions(etoDTO);
+//				scheduledTasks.runETLTransaction(etoDTO);
 				System.out.println("end run....for "+etoDTO.getName());
 			};
 	

@@ -16,11 +16,31 @@ public class BankTerminatorDTO implements Serializable {
 
 	private String id;
 
-	private String atm;
+	private Integer terminator_index;
 
-	private String ATM_Bank;
+	private String name;
 
-	private int atm_name;
+	private String bank_code;
+	
+	private Integer active;
+
+	@Override
+	public String toString() {
+		StringBuilder builder = new StringBuilder();
+		builder.append("BankTerminatorDTO [id=");
+		builder.append(id);
+		builder.append(", terminator_index=");
+		builder.append(terminator_index);
+		builder.append(", name=");
+		builder.append(name);
+		builder.append(", bank_code=");
+		builder.append(bank_code);
+		builder.append(", active=");
+		builder.append(active);
+		builder.append("]");
+		return builder.toString();
+	}
+	
 
 
 }

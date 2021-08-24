@@ -328,6 +328,20 @@ public class StringUtils {
 		String currentTimeStr = currentTime.format(dateTimeFormatter);
 		return currentTimeStr;
    	}
+
+   	public static String getDateAsString(LocalDateTime currentTime,String pattern) {
+		DateTimeFormatter dateTimeFormatter= DateTimeFormatter.ofPattern(pattern);
+		String currentTimeStr = currentTime.format(dateTimeFormatter);
+		return currentTimeStr;
+   	}
+
+   	
+   	public static String getDateAsStringWithPattern(Date date,String pattern) {
+   		if (date==null) return null;
+   		
+   		LocalDateTime ldt = date.toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
+   		return getDateAsString(ldt,pattern);
+   	}
    	
    	public static String getDateAsString(Date date) {
    		if (date==null) return null;

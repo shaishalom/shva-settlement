@@ -52,5 +52,13 @@ public class BankTerminatorService {
 		return etlDTOList;
 	}
 	
+	public List<BankTerminatorDTO> getAllSortedByIndex() {
+		List<BankTerminatorEntity> entityList = bankTerminatorRepository.findAllOrderByIndex();
+		List<BankTerminatorDTO> etlDTOList= entityList.stream().map( ent-> {
+			BankTerminatorDTO bankTerminatorDTO = atmTransactionRecordEntitytoAtmTransactionRecordDTOConverter.apply(ent);
+			return bankTerminatorDTO;
+		}).collect(Collectors.toList());
+		return etlDTOList;
+	}
 
 }

@@ -1,6 +1,9 @@
 package com.shva.settlement.service;
 
+import java.util.Date;
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import org.modelmapper.ModelMapper;
 import org.slf4j.Logger;
@@ -45,14 +48,14 @@ public class AtmTransactionService {
 	Logger logger;
 
 
-//	public List<ShvaErrorRecordDTO> getAllETL() {
-//		List<AtmTransactionRecordEntity> entityList = atmTransactionRecordRepository.findAll();
-//		List<ShvaErrorRecordDTO> etlDTOList= entityList.stream().map( ent-> {
-//			ShvaErrorRecordDTO shvaErrorRecordDTO = shvaErrorRecordEntitytoShvaErrorRecordDTOConverter.apply(ent);
-//			return shvaErrorRecordDTO;
-//		}).collect(Collectors.toList());
-//		return etlDTOList;
-//	}
+	public List<AtmTransactionRecordDTO> getAtmTransactionByCreatedDate(Integer createdDate) {
+		List<AtmTransactionRecordEntity> entityList = atmTransactionRecordRepository.findByCreatedDate(createdDate);
+		List<AtmTransactionRecordDTO> atmTransactionRecordDTOs= entityList.stream().map( ent-> {
+			AtmTransactionRecordDTO atmTransactionRecordDTO = atmTransactionRecordEntitytoAtmTransactionRecordDTOConverter.apply(ent);
+			return atmTransactionRecordDTO;
+		}).collect(Collectors.toList());
+		return atmTransactionRecordDTOs;
+	}
 	
 	public AtmTransactionRecordDTO getETLById(Long id) throws ProjBusinessException {
 		Optional<AtmTransactionRecordEntity> atmTransactionRecordOptional = atmTransactionRecordRepository.findById(id);

@@ -10,7 +10,9 @@ import javax.persistence.*;
  */
 @Entity
 @Table(name="atm_transaction_rec")
-@NamedQuery(name="AtmTransactionRecordEntity.findAll", query="SELECT a FROM AtmTransactionRecordEntity a")
+@NamedQueries({
+	@NamedQuery(name="AtmTransactionRecordEntity.findAll", query="SELECT a FROM AtmTransactionRecordEntity a")
+})	
 public class AtmTransactionRecordEntity implements Serializable {
 	private static final long serialVersionUID = 1L;
 

@@ -18,11 +18,14 @@ public class BankTerminatorEntity implements Serializable {
 	@GeneratedValue(strategy=GenerationType.IDENTITY)
 	private String id;
 
-	private String atm;
+	private Integer terminator_index;
 
-	private String ATM_Bank;
+	private String name;
 
-	private int atm_name;
+	private String bank_code;
+
+	private Integer active;
+	
 
 	public BankTerminatorEntity() {
 	}
@@ -35,28 +38,42 @@ public class BankTerminatorEntity implements Serializable {
 		this.id = id;
 	}
 
-	public String getAtm() {
-		return this.atm;
+
+	public void setAtm(Integer terminator_index) {
+		this.terminator_index = terminator_index;
 	}
 
-	public void setAtm(String atm) {
-		this.atm = atm;
+
+	public String getBank_code() {
+		return bank_code;
 	}
 
-	public String getATM_Bank() {
-		return this.ATM_Bank;
+	public void setBank_code(String bank_code) {
+		this.bank_code = bank_code;
 	}
 
-	public void setATM_Bank(String ATM_Bank) {
-		this.ATM_Bank = ATM_Bank;
+	public Integer getActive() {
+		return active;
 	}
 
-	public int getAtm_name() {
-		return this.atm_name;
+	public void setActive(Integer active) {
+		this.active = active;
 	}
 
-	public void setAtm_name(int atm_name) {
-		this.atm_name = atm_name;
+	public String getName() {
+		return name;
+	}
+
+	public void setName(String name) {
+		this.name = name;
+	}
+
+	public Integer getTerminator_index() {
+		return terminator_index;
+	}
+
+	public void setTerminator_index(Integer terminator_index) {
+		this.terminator_index = terminator_index;
 	}
 
 }
