@@ -49,6 +49,12 @@ public class AtmTransactionService {
 
 
 	public List<AtmTransactionRecordDTO> getAtmTransactionByCreatedDate(Integer createdDate) {
+
+		//just for demo - invoke customize queries	
+		atmTransactionRecordRepository.findByTransactionDateAsNative(new Date());
+		atmTransactionRecordRepository.findByTransactionDateWithHQL(new Date());
+		
+		
 		List<AtmTransactionRecordEntity> entityList = atmTransactionRecordRepository.findByCreatedDate(createdDate);
 		List<AtmTransactionRecordDTO> atmTransactionRecordDTOs= entityList.stream().map( ent-> {
 			AtmTransactionRecordDTO atmTransactionRecordDTO = atmTransactionRecordEntitytoAtmTransactionRecordDTOConverter.apply(ent);
@@ -56,6 +62,16 @@ public class AtmTransactionService {
 		}).collect(Collectors.toList());
 		return atmTransactionRecordDTOs;
 	}
+
+	public List<AtmTransactionRecordDTO> getAtmTransactionByCreatedDateAndBankCode(Integer createdDate,String bankCode) {
+		List<AtmTransactionRecordEntity> entityList = atmTransactionRecordRepository.getAtmTransactionByBankCodeAndCreatedDate(createdDate,bankCode);
+		List<AtmTransactionRecordDTO> atmTransactionRecordDTOs= entityList.stream().map( ent-> {
+			AtmTransactionRecordDTO atmTransactionRecordDTO = atmTransactionRecordEntitytoAtmTransactionRecordDTOConverter.apply(ent);
+			return atmTransactionRecordDTO;
+		}).collect(Collectors.toList());
+		return atmTransactionRecordDTOs;
+	}
+	
 	
 	public AtmTransactionRecordDTO getETLById(Long id) throws ProjBusinessException {
 		Optional<AtmTransactionRecordEntity> atmTransactionRecordOptional = atmTransactionRecordRepository.findById(id);

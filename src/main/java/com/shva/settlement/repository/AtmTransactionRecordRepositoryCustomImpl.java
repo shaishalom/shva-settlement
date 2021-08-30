@@ -5,8 +5,10 @@ import java.util.List;
 
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
-import javax.persistence.Query;
 import javax.persistence.TypedQuery;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 
 import com.shva.settlement.model.AtmTransactionRecordEntity;
 import com.shva.settlement.util.StringUtils;
@@ -14,33 +16,47 @@ import com.shva.settlement.util.StringUtils;
 
 public class AtmTransactionRecordRepositoryCustomImpl implements AtmTransactionRecordRepositoryCustom {
 
+	@Autowired
+	@Lazy
+    private AtmTransactionRecordRepository atmTransactionRecordRepository;
 	
 	   @PersistenceContext
 	    EntityManager entityManager;
 
-	    public List<AtmTransactionRecordEntity> findByTransactionDate1(Date createdDate) {
+	    public List<AtmTransactionRecordEntity> findByTransactionDateAsNative(Date createdDate) {
 	    	
-	    	TypedQuery<AtmTransactionRecordEntity> query = (TypedQuery<AtmTransactionRecordEntity>) entityManager.createNativeQuery("SELECT em.* FROM atm_transaction_rec WHERE transac_Date = :date", AtmTransactionRecordEntity.class);
+	    	TypedQuery<AtmTransactionRecordEntity> query = (TypedQuery<AtmTransactionRecordEntity>) entityManager.createNativeQuery("SELECT * FROM atm_transaction_rec WHERE transac_Date = :tran_date", AtmTransactionRecordEntity.class);
 	        
-	        String dateYYMMDD = StringUtils.getDateAsStringWithPattern(createdDate, "YYYYMMDD");
-	        
-	        query.setParameter("date",  dateYYMMDD);
+	        String dateYYMMDD = StringUtils.getDateAsStringWithPattern(createdDate, "yyMMdd");
+	        dateYYMMDD = "210826";
+	        query.setParameter("tran_date",  dateYYMMDD);
 
 	        List<AtmTransactionRecordEntity> atmTransactionRecordEntities= query.getResultList();
+	        System.out.println("findByTransactionDateAsNative ->size:"+atmTransactionRecordEntities.size());
+	        
+	        List<AtmTransactionRecordEntity> eList12 = atmTransactionRecordRepository.getAtmTransactionByBankCodeAndCreatedDate(Integer.parseInt(dateYYMMDD),"12");
+	        System.out.println("size of the standart with bank 12 :"+eList12.size());
+	        List<AtmTransactionRecordEntity> eList10 = atmTransactionRecordRepository.getAtmTransactionByBankCodeAndCreatedDate(Integer.parseInt(dateYYMMDD),"10");
+	        System.out.println("size of the standart with bank 10 :"+eList10.size());
 	        
 	        return atmTransactionRecordEntities;
 	}	
 
-	    public List<AtmTransactionRecordEntity> findByTransactionDate(Date createdDate) {
+	    public List<AtmTransactionRecordEntity> findByTransactionDateWithHQL(Date createdDate) {
 	    	
-	    	TypedQuery<AtmTransactionRecordEntity> query = entityManager.createQuery("SELECT FROM AtmTransactionRecordEntity " +
-	                "WHERE transac_Date = ?", AtmTransactionRecordEntity.class);
+	    	TypedQuery<AtmTransactionRecordEntity> query = entityManager.createQuery("SELECT a FROM AtmTransactionRecordEntity a " +
+	                "WHERE a.transac_Date = :tran_date", AtmTransactionRecordEntity.class);
 	        
-	        String dateYYMMDD = StringUtils.getDateAsStringWithPattern(createdDate, "YYYYMMDD");
+	        String dateYYMMDD = StringUtils.getDateAsStringWithPattern(createdDate, "yyMMdd");
+	        dateYYMMDD = "210826";
 	        
-	        query.setParameter(1, dateYYMMDD);
+	        
+	        query.setParameter("tran_date", Integer.parseInt(dateYYMMDD));
 
 	        List<AtmTransactionRecordEntity> atmTransactionRecordEntities= query.getResultList();
+	        
+	        System.out.println("findByTransactionDateWithHQL ->size:"+atmTransactionRecordEntities.size());
+	        
 	        
 	        return atmTransactionRecordEntities;
 	}	

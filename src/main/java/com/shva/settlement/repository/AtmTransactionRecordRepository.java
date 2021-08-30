@@ -13,12 +13,19 @@ import com.shva.settlement.model.TransactionEntity;
 
 @Repository
 public interface AtmTransactionRecordRepository
-        extends JpaRepository<AtmTransactionRecordEntity, Long> {
+        extends JpaRepository<AtmTransactionRecordEntity, Long> , AtmTransactionRecordRepositoryCustom {
 	
 	@Query("select a from AtmTransactionRecordEntity a where a.transac_Date = :transacDate")
 	public List<AtmTransactionRecordEntity> findByCreatedDate(@Param("transacDate") int createdDate);
  
+	@Query("select a from AtmTransactionRecordEntity a where a.transac_Date = :transacDate and a.ATM_Bank = :bankCode")
+	public List<AtmTransactionRecordEntity> getAtmTransactionByBankCodeAndCreatedDate(@Param("transacDate") int createdDate, @Param("bankCode") String bankCode);
 	
+	public interface AtmTransactionRecordRepositoryCustom {
+	    public void findByTransactionDate1(Date createdDate);
+	    
+	    
+	}	
 	
 }
 

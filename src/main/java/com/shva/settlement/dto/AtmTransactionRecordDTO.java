@@ -4,7 +4,10 @@ import java.io.Serializable;
 
 import javax.persistence.Column;
 
+import org.springframework.stereotype.Component;
+
 import lombok.Data;
+
 
 
 @Data

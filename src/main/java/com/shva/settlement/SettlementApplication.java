@@ -19,11 +19,13 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Scope;
+import org.springframework.core.task.support.ExecutorServiceAdapter;
 import org.springframework.scheduling.Trigger;
 import org.springframework.scheduling.TriggerContext;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.SchedulingConfigurer;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.scheduling.config.ScheduledTaskRegistrar;
 import org.springframework.scheduling.support.CronTrigger;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
@@ -109,10 +111,11 @@ public class SettlementApplication implements SchedulingConfigurer {
 //          .build();                                           
 //    }	
 
-	@Bean(destroyMethod = "shutdown")
-	public Executor taskExecutor() {
-		return Executors.newScheduledThreadPool(100);
-	}
+// no need	(25/08/21)
+//	@Bean(destroyMethod = "shutdown")
+//	public Executor taskExecutor() {
+//		return Executors.newScheduledThreadPool(100);
+//	}
 	
 //	@Override
 //	public void addResourceHandlers(ResourceHandlerRegistry registry) {
@@ -157,5 +160,21 @@ public class SettlementApplication implements SchedulingConfigurer {
 
 	}
 	
+	//from 25/08/2021
+//	@Bean
+//	public ThreadPoolTaskExecutor taskExecutor1() {
+//		ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+//		executor.setWaitForTasksToCompleteOnShutdown(true);
+//		executor.setCorePoolSize(10);
+//		executor.setMaxPoolSize(10);
+//		return executor;
+//	}
+//	
+//	@Bean
+//	ExecutorServiceAdapter executorServiceAdapter() {
+//		ExecutorServiceAdapter esa=new ExecutorServiceAdapter(null);
+//		return esa;
+//	}
+//	
 
 }

@@ -1,7 +1,11 @@
 package com.shva.settlement.dto;
 
 import java.io.Serializable;
+import java.util.List;
+
 import javax.persistence.*;
+
+import org.springframework.stereotype.Component;
 
 import lombok.Data;
 
@@ -10,6 +14,7 @@ import lombok.Data;
  * The persistent class for the bank_terminator database table.
  * 
  */
+@Component
 @Data
 public class BankTerminatorDTO implements Serializable {
 	private static final long serialVersionUID = 1L;
@@ -23,6 +28,10 @@ public class BankTerminatorDTO implements Serializable {
 	private String bank_code;
 	
 	private Integer active;
+	
+	private Long totalSummaryAmount=null;
+	
+	private List<AtmTransactionRecordDTO>  atmTransactionRecordList;
 
 	@Override
 	public String toString() {

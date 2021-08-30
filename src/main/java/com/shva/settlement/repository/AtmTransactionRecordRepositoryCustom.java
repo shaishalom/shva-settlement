@@ -8,7 +8,9 @@ import com.shva.settlement.model.AtmTransactionRecordEntity;
 
 public interface AtmTransactionRecordRepositoryCustom {
 	
-	public List<AtmTransactionRecordEntity> findByTransactionDate(Date createdDate);
+	public List<AtmTransactionRecordEntity> findByTransactionDateAsNative(Date createdDate);
+	
+	public List<AtmTransactionRecordEntity> findByTransactionDateWithHQL(Date createdDate);	
 }
 
 
