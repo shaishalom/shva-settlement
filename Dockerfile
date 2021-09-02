@@ -1,0 +1,45 @@
+FROM openjdk:16-jdk-alpine 
+VOLUME /tmp
+ARG JAR_FILE=target/*.jar
+docker pull mysql
+docker run -d --name=testdb -e MYSQL_ROOT_PASSWORD=’root’ -v test-mysql/datadir:app/lib/mysql mysql:8
+RUN mkdir -p /lib 
+COPY target/lib /app/lib
+COPY ${JAR_FILE} /app/app.jar
+COPY target/*.sql /app
+COPY target/*.properties /app
+ENTRYPOINT ["java","-cp","app:/app/lib/*","-jar","/app/app.jar"]
+
+
+
+
+
+
+# For Java 8, try this
+# FROM openjdk:8-jdk-alpine
+
+# For Java 11, try this
+#FROM adoptopenjdk/openjdk11:alpine-jre
+#FROM openjdk:16-jdk-alpine
+#FROM adoptopenjdk/openjdk16:alpine-jre
+
+
+# Refer to Maven build -> finalName
+#COPY target/settlement-0.0.1-SNAPSHOT.jar settlement.jar
+#WORKDIR /tmp
+#CMD ["java", "-jar", "/settlement.jar"]
+
+#ARG JAR_FILE=target/settlement-0.0.1-SNAPSHOT.jar
+
+# cd /opt/app
+#WORKDIR /opt/app
+
+# cp target/spring-boot-web.jar /opt/app/settlement.jar
+#COPY ${JAR_FILE} settlement.jar
+
+# java -jar /opt/app/app.jar
+#ENTRYPOINT ["java","-jar","settlement.jar"]
+
+## sudo docker run -p 8080:8080 -t docker-spring-boot:1.0
+## sudo docker run -p 80:8080 -t docker-spring-boot:1.0
+## sudo docker run -p 443:8443 -t docker-spring-boot:1.0

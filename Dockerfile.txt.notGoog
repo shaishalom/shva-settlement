@@ -1,0 +1,51 @@
+FROM openjdk:16-jdk-alpine as build
+WORKDIR /workspace/app
+
+ENV HOME=/root
+RUN mkdir ${HOME}/java
+WORKDIR ${HOME}
+
+
+COPY "maven" ${HOME}/java/maven
+COPY pom.xml .
+COPY src src
+
+RUN --mount=type=cache,target=/root/.m2 ${HOME}/java/maven/bin/mvn install -DskipTests
+#RUN mkdir -p target/lib && (cd target/lib; jar -xf ../*.jar)
+
+FROM openjdk:8-jdk-alpine
+VOLUME /tmp
+ARG DEPENDENCY=/workspace/app/target/lib
+COPY --from=build ${DEPENDENCY} /app/lib
+COPY ${JAR_FILE} /app/app.jar
+ENTRYPOINT ["java","-cp","app:/app/lib/*","-jar","/app/app.jar"]
+
+
+# For Java 8, try this
+# FROM openjdk:8-jdk-alpine
+
+# For Java 11, try this
+#FROM adoptopenjdk/openjdk11:alpine-jre
+#FROM openjdk:16-jdk-alpine
+#FROM adoptopenjdk/openjdk16:alpine-jre
+
+
+# Refer to Maven build -> finalName
+#COPY target/settlement-0.0.1-SNAPSHOT.jar settlement.jar
+#WORKDIR /tmp
+#CMD ["java", "-jar", "/settlement.jar"]
+
+#ARG JAR_FILE=target/settlement-0.0.1-SNAPSHOT.jar
+
+# cd /opt/app
+#WORKDIR /opt/app
+
+# cp target/spring-boot-web.jar /opt/app/settlement.jar
+#COPY ${JAR_FILE} settlement.jar
+
+# java -jar /opt/app/app.jar
+#ENTRYPOINT ["java","-jar","settlement.jar"]
+
+## sudo docker run -p 8080:8080 -t docker-spring-boot:1.0
+## sudo docker run -p 80:8080 -t docker-spring-boot:1.0
+## sudo docker run -p 443:8443 -t docker-spring-boot:1.0
