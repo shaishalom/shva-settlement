@@ -2,8 +2,10 @@ package com.shva.settlement.task;
 
 import java.io.IOException;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -11,6 +13,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.modelmapper.ModelMapper;
 import org.slf4j.Logger;
@@ -173,10 +176,43 @@ public class ScheduledTasks {
 				foundBankTerminatorDTO.setAtmTransactionRecordList(bankATMTransactionDto.getAtmTransactionRecordDTOList());
 			}
 							
-			logger.info("For bank:"+bankATMTransactionDto.getBankCode() +", num Of Record:" +bankATMTransactionDto.getAtmTransactionRecordDTOList().size() + ", total amount:"  + totalAmountOfBank );
+			logger.info("For terminator bank:"+bankATMTransactionDto.getBankCode() +", num Of Record:" +bankATMTransactionDto.getAtmTransactionRecordDTOList().size() + ", total amount:"  + totalAmountOfBank );
 		});
 		
+		 List<AtmTransactionRecordDTO> allATMRecords = bankAtmTransactionList.stream().map(bankATMTransactionDto -> {
 		
+			return bankATMTransactionDto.getAtmTransactionRecordDTOList();
+		}).flatMap( x -> x.stream()).collect(Collectors.toList());
+		
+		 
+		 Map<Integer, List<AtmTransactionRecordDTO>> issuerTransactionMap = allATMRecords.stream()
+				  .collect(Collectors.groupingBy(AtmTransactionRecordDTO::getBOI_issuer_id));
+		 
+		 List<BankTerminatorDTO> issuersList= new ArrayList<>(); 
+		  issuerTransactionMap.entrySet().forEach(bankATMTransactionDtoEntry -> {
+			 
+				Long totalAmountOfIssuers =bankATMTransactionDtoEntry.getValue().stream().mapToLong(AtmTransactionRecordDTO::getAmount).sum();
+  			    BankTerminatorDTO bankIssuerDTO = new BankTerminatorDTO(); 
+				bankIssuerDTO.setTotalSummaryAmount(totalAmountOfIssuers);
+  			    bankIssuerDTO.setAtmTransactionRecordList(bankATMTransactionDtoEntry.getValue());
+  			    bankIssuerDTO.setBank_code(String.valueOf( bankATMTransactionDtoEntry.getKey()));
+  			    //bankIssuerDTO.set
+				
+  				///logger.info("For isssuer bank: {}" +", num Of Record: {}, total amount: {}" , bankIssuerDTO.getBank_code(), bankIssuerDTO.getAtmTransactionRecordList().size() , bankIssuerDTO.getTotalSummaryAmount() );
+  				issuersList.add(bankIssuerDTO);
+				
+								
+//				if (foundBankTerminatorDTO!=null) {
+//					foundBankTerminatorDTO.setTotalSummaryAmount(totalAmountOfBank);
+//					foundBankTerminatorDTO.setAtmTransactionRecordList(bankATMTransactionDto.getAtmTransactionRecordDTOList());
+//				}
+								
+				//logger.info("For bank:"+bankATMTransactionDto.getBankCode() +", num Of Record:" +bankATMTransactionDto.getAtmTransactionRecordDTOList().size() + ", total amount:"  + totalAmountOfBank );
+			});
+		  issuersList.stream().forEach(bankIssuerDTO -> {
+			  logger.info("For issuer bank: {}" +", num Of Record: {}, total amount: {}" , bankIssuerDTO.getBank_code(), bankIssuerDTO.getAtmTransactionRecordList().size() , bankIssuerDTO.getTotalSummaryAmount() );
+		  });
+		 
 		//bankAtmTransactionList.stream().collect(Collectors.groupingBy(BankATMTransactionDTO::getBankCode));
 		//int sum = bankAtmTransactionList.stream().filter(o -> o. > 10).mapToInt(Obj::getField).sum();
 		
@@ -291,8 +327,9 @@ public class ScheduledTasks {
 		bankTerminatorDTOList.stream().forEach(System.out::println);
 
 		fillBankTerminatorRecords(bankTerminatorDTOList);
-		
+		//create record in db
 		bankTerminatorDTOList.stream().forEach( dto->{
+			
 			System.out.println(dto);
 		});
 		

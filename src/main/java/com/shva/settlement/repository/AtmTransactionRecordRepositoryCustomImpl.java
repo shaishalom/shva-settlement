@@ -34,9 +34,9 @@ public class AtmTransactionRecordRepositoryCustomImpl implements AtmTransactionR
 	        List<AtmTransactionRecordEntity> atmTransactionRecordEntities= query.getResultList();
 	        System.out.println("findByTransactionDateAsNative ->size:"+atmTransactionRecordEntities.size());
 	        
-	        List<AtmTransactionRecordEntity> eList12 = atmTransactionRecordRepository.getAtmTransactionByBankCodeAndCreatedDate(Integer.parseInt(dateYYMMDD),"12");
+	        List<AtmTransactionRecordEntity> eList12 = atmTransactionRecordRepository.getAtmTransactionByTerminatorBankCodeAndCreatedDate(Integer.parseInt(dateYYMMDD),"12");
 	        System.out.println("size of the standart with bank 12 :"+eList12.size());
-	        List<AtmTransactionRecordEntity> eList10 = atmTransactionRecordRepository.getAtmTransactionByBankCodeAndCreatedDate(Integer.parseInt(dateYYMMDD),"10");
+	        List<AtmTransactionRecordEntity> eList10 = atmTransactionRecordRepository.getAtmTransactionByTerminatorBankCodeAndCreatedDate(Integer.parseInt(dateYYMMDD),"10");
 	        System.out.println("size of the standart with bank 10 :"+eList10.size());
 	        
 	        return atmTransactionRecordEntities;

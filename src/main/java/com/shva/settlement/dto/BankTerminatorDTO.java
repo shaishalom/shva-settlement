@@ -46,6 +46,8 @@ public class BankTerminatorDTO implements Serializable {
 		builder.append(bank_code);
 		builder.append(", active=");
 		builder.append(active);
+		builder.append(", totalSummaryAmount=");
+		builder.append(totalSummaryAmount);
 		builder.append("]");
 		return builder.toString();
 	}

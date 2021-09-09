@@ -63,8 +63,9 @@ public class AtmTransactionService {
 		return atmTransactionRecordDTOs;
 	}
 
-	public List<AtmTransactionRecordDTO> getAtmTransactionByCreatedDateAndBankCode(Integer createdDate,String bankCode) {
-		List<AtmTransactionRecordEntity> entityList = atmTransactionRecordRepository.getAtmTransactionByBankCodeAndCreatedDate(createdDate,bankCode);
+	public List<AtmTransactionRecordDTO> getAtmTransactionByCreatedDateAndTerminatorBankCode(Integer createdDate,String bankCode) {
+		List<AtmTransactionRecordEntity> entityList = atmTransactionRecordRepository.getAtmTransactionByTerminatorBankCodeAndCreatedDate(createdDate,bankCode);
+		logger.info("for Bank(Terminator):{} and date:{} -> fetch num of records:{}",bankCode,createdDate,entityList.size());
 		List<AtmTransactionRecordDTO> atmTransactionRecordDTOs= entityList.stream().map( ent-> {
 			AtmTransactionRecordDTO atmTransactionRecordDTO = atmTransactionRecordEntitytoAtmTransactionRecordDTOConverter.apply(ent);
 			return atmTransactionRecordDTO;

@@ -34,7 +34,7 @@ public class BankTerminatorCallable implements Callable<BankATMTransactionDTO>{
 		//temp
 		currentDateInt=210826;
 		
-		List<AtmTransactionRecordDTO> atmTransactionRecordDTOs = this.atmTransactionService.getAtmTransactionByCreatedDateAndBankCode(currentDateInt,bankTerminatorDTO.getBank_code());
+		List<AtmTransactionRecordDTO> atmTransactionRecordDTOs = this.atmTransactionService.getAtmTransactionByCreatedDateAndTerminatorBankCode(currentDateInt,bankTerminatorDTO.getBank_code());
 		BankATMTransactionDTO bankATMTransactionDTO = new BankATMTransactionDTO(atmTransactionRecordDTOs,currentDateInt, bankTerminatorDTO.getBank_code()); 
 		return 	bankATMTransactionDTO;
 //    	atmTransactionService.getAtmTransactionByCreatedDate(null)

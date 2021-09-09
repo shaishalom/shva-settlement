@@ -1,8 +1,8 @@
 FROM openjdk:16-jdk-alpine 
 VOLUME /tmp
 ARG JAR_FILE=target/*.jar
-docker pull mysql
-docker run -d --name=testdb -e MYSQL_ROOT_PASSWORD=’root’ -v test-mysql/datadir:app/lib/mysql mysql:8
+#docker pull mysql
+#docker run -d --name=testdb -e MYSQL_ROOT_PASSWORD=’root’ -v test-mysql/datadir:app/lib/mysql mysql:8
 RUN mkdir -p /lib 
 COPY target/lib /app/lib
 COPY ${JAR_FILE} /app/app.jar
