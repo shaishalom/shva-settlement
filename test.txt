@@ -1,0 +1,15 @@
+class FTPDto:
+    def __init__(self, source_dir: str, target_dir: str, filenameArr: {} , hostname:str, user:str,password:str) -> None:
+        self.source_dir = source_dir
+        self.target_dir = target_dir
+        self.filenameArr = filenameArr
+        self.hostname = hostname
+        self.user = user
+        self.password = password
+
+class SQLServerDTO:
+    def __init__(self, host: str, database: str, user: str, password: str) -> None:
+        self.host = host
+        self.database = database
+        self.user = user
+        self.password = password
