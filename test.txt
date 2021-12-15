@@ -1,42 +1,29 @@
-import mysql.connector
-import pandas as pd
-from datetime import datetime
-from ClassDTO import SQLServerDTO
+import this
+from dataclasses import dataclass
 
-sqlServerDTO = SQLServerDTO(
-    host='localhost',
-    database='testdb',
-    user='root',
-    password='root'
-)
-try:
-    connection = mysql.connector.connect(host=sqlServerDTO.host,
-                                         database=sqlServerDTO.database,
-                                         user=sqlServerDTO.user,
-                                         password=sqlServerDTO.password)
+@dataclass
+class FTPDto:
+    def __init__(self, source_dir: str, target_dir: str, filenameArr: {} , hostname:str, user:str,password:str) -> None:
+        self.source_dir = source_dir
+        self.target_dir = target_dir
+        self.filenameArr = filenameArr
+        self.hostname = hostname
+        self.user = user
+        self.password = password
 
-    sql_select_Query = "select * from transaction"
-    cursor = connection.cursor()
-    cursor.execute(sql_select_Query)
-    # get all records
-    records = cursor.fetchall()
-    print("Total number of rows in table: ", cursor.rowcount)
-    print("\nPrinting each row")
-    for row in records:
-        print("Id = ", row[0], )
-        print("bank_id = ", row[1])
-        print("name  = ", row[2])
-        print("description  = ", row[3])
-        print("amount  = ", row[4])
-        date_time = pd.to_datetime(row[4], format='%Y/%m/%d %H:%M:%S')
-        valueDate=row[5]
-        date_time = valueDate.strftime("%d/%m/%Y %H:%M:%S")
-        #date_time = pd.to_datetime(row[4], format='%d/%m/%Y %H:%M:%S')
-        print("created_date  = ", date_time, "\n")
-except mysql.connector.Error as e:
-    print("Error reading data from MySQL table", e)
-finally:
-    if connection.is_connected():
-        connection.close()
-        cursor.close()
-        print("MySQL connection is closed")
+    def __str__(self):
+        # Do whatever you want here
+        return "source_dir: {0}\ttarget_dir: {1} \tfilenameArr: {2} \thostname: {3} \tuser: {4} \tpassword: {5} ".format(self.source_dir, self.target_dir, str(self.filenameArr), self.hostname,self.user,self.password)
+
+@dataclass
+class SQLServerDTO:
+    def __init__(self, host: str, database: str, user: str, password: str) -> None:
+        self.host = host
+        self.database = database
+        self.user = user
+        self.password = password
+
+    def __str__(self):
+        return "host: {0}\tdatabase: {1} user: {2} password: {3} ".format(self.host, self.database, self.user, self.password)
+
+
