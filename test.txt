@@ -1,15 +1,42 @@
-class FTPDto:
-    def __init__(self, source_dir: str, target_dir: str, filenameArr: {} , hostname:str, user:str,password:str) -> None:
-        self.source_dir = source_dir
-        self.target_dir = target_dir
-        self.filenameArr = filenameArr
-        self.hostname = hostname
-        self.user = user
-        self.password = password
+import mysql.connector
+import pandas as pd
+from datetime import datetime
+from ClassDTO import SQLServerDTO
 
-class SQLServerDTO:
-    def __init__(self, host: str, database: str, user: str, password: str) -> None:
-        self.host = host
-        self.database = database
-        self.user = user
-        self.password = password
+sqlServerDTO = SQLServerDTO(
+    host='localhost',
+    database='testdb',
+    user='root',
+    password='root'
+)
+try:
+    connection = mysql.connector.connect(host=sqlServerDTO.host,
+                                         database=sqlServerDTO.database,
+                                         user=sqlServerDTO.user,
+                                         password=sqlServerDTO.password)
+
+    sql_select_Query = "select * from transaction"
+    cursor = connection.cursor()
+    cursor.execute(sql_select_Query)
+    # get all records
+    records = cursor.fetchall()
+    print("Total number of rows in table: ", cursor.rowcount)
+    print("\nPrinting each row")
+    for row in records:
+        print("Id = ", row[0], )
+        print("bank_id = ", row[1])
+        print("name  = ", row[2])
+        print("description  = ", row[3])
+        print("amount  = ", row[4])
+        date_time = pd.to_datetime(row[4], format='%Y/%m/%d %H:%M:%S')
+        valueDate=row[5]
+        date_time = valueDate.strftime("%d/%m/%Y %H:%M:%S")
+        #date_time = pd.to_datetime(row[4], format='%d/%m/%Y %H:%M:%S')
+        print("created_date  = ", date_time, "\n")
+except mysql.connector.Error as e:
+    print("Error reading data from MySQL table", e)
+finally:
+    if connection.is_connected():
+        connection.close()
+        cursor.close()
+        print("MySQL connection is closed")
