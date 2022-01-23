@@ -1,0 +1,1159 @@
+
+
+file Read:C:\shai\Workspace\util\pom.xml
+-----------------------------------------------------
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>com</groupId>
+  <artifactId>util</artifactId>
+  <version>0.0.1-SNAPSHOT</version>
+  <packaging>jar</packaging>
+
+  <name>util</name>
+  <url>http://maven.apache.org</url>
+
+  <properties>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<maven.compiler.target>1.8</maven.compiler.target>
+		<maven.compiler.source>1.8</maven.compiler.source>
+  </properties>
+
+  	<dependencies>
+		<dependency>
+			<groupId>junit</groupId>
+			<artifactId>junit</artifactId>
+			<version>3.8.1</version>
+			<scope>test</scope>
+		</dependency>
+
+		<!-- https://mvnrepository.com/artifact/org.jasypt/jasypt -->
+		<dependency>
+			<groupId>org.jasypt</groupId>
+			<artifactId>jasypt</artifactId>
+			<version>1.9.2</version>
+		</dependency>
+
+		<!-- https://mvnrepository.com/artifact/commons-io/commons-io -->
+		<dependency>
+			<groupId>commons-io</groupId>
+			<artifactId>commons-io</artifactId>
+			<version>2.6</version>
+		</dependency>
+
+		<!-- https://mvnrepository.com/artifact/org.apache.commons/commons-lang3 -->
+		<dependency>
+			<groupId>org.apache.commons</groupId>
+			<artifactId>commons-lang3</artifactId>
+			<version>3.9</version>
+		</dependency>
+		
+		<dependency>
+			<groupId>org.json</groupId>
+			<artifactId>json</artifactId>
+			<version>20201115</version>
+		</dependency>
+
+	</dependencies>
+  
+</project>
+
+
+file Read:C:\shai\Workspace\util\src\main\java\com\util\App.java
+-----------------------------------------------------
+package com.util;
+
+/**
+ * Hello world!
+ *
+ */
+public class App 
+{
+    public static void main( String[] args )
+    {
+        System.out.println( "Hello World!" );
+    }
+}
+
+
+file Read:C:\shai\Workspace\util\src\main\java\com\util\CreateFiles.java
+-----------------------------------------------------
+package com.util;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.stream.Stream;
+
+public class CreateFiles {
+
+	static String TEMP_DIR="C:\\shai\\temp1";
+
+	public static void main(String[] args) {
+		// TODO Auto-generated method stub
+
+		try (Stream<Path> paths = Files.walk(Paths.get(TEMP_DIR))) {
+		    paths
+		        .filter(Files::isRegularFile)
+		        .forEach( f-> System.out.println("copy /b NUL "+ f.getFileName()));
+		} catch(Exception e) {
+			
+		}
+	}
+
+}
+
+
+file Read:C:\shai\Workspace\util\src\main\java\com\util\Decryptor.java
+-----------------------------------------------------
+package com.util;
+
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import org.apache.commons.io.FilenameUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.jasypt.util.text.StrongTextEncryptor;
+
+
+public class Decryptor {
+	
+	public static String DIR="C:\\shai\\temp\\2";
+	//public static String DIR_TEMP="C:\\shai\\temp\2-output";
+	
+	public static void main(String[] args) throws IOException {
+		//System.out.println("Hello World!");
+		//  decryptFile("d_20200107_195459.04.txt",DIR);
+		  //decryptFile("g_20200102_171836.txt",DIR_TEMP);
+		  //decryptFile("n_20200109_183455.11.txt",DIR);
+		  //decryptFile("c_20200102_171627.txt",DIR_TEMP);
+		  
+		  //for folder
+		  mergeFileSplitted(DIR);
+		  decriptTotalFiles(DIR);
+
+		  
+	}
+
+	public static void decriptTotalFiles(String dirStr) {
+		File dir = new File(dirStr);
+		  File[] directoryListing = dir.listFiles();
+		  for (File child : directoryListing) {
+			  if (child.getName().matches("(.*)\\.total.txt")) {
+				  decryptFile(child.getName(),dirStr);
+//				  String number = StringUtils.substringBetween(child.getName(), ".", ".txt");
+//				  String firstname = StringUtils.substringBetween(child.getName(), "", ".");
+//				  System.out.println(child.getName()+",number:"+number+",firstName:"+firstname);
+//				  String newfileName = firstname + "."+StringUtils.leftPad(number, 2, '0') + ".txt";
+//				  System.out.println(newfileName);
+//				  File newFile = new File(child.getParent(), newfileName);
+//				  Files.move(child.toPath(), newFile.toPath());
+			  }
+		  }
+	}
+
+	public static void mergeFileSplitted(String dirStr) throws IOException, FileNotFoundException {
+		//rename File if needed
+		  File dir = new File(dirStr);
+		  File[] directoryListing = dir.listFiles();
+		  for (File child : directoryListing) {
+			  if (child.getName().matches("(.*)\\.\\d{1}.txt")) {
+				  String number = StringUtils.substringBetween(child.getName(), ".", ".txt");
+				  String firstname = StringUtils.substringBetween(child.getName(), "", ".");
+				  System.out.println(child.getName()+",number:"+number+",firstName:"+firstname);
+				  String newfileName = firstname + "."+StringUtils.leftPad(number, 3, '0') + ".txt";
+				  System.out.println(newfileName);
+				  File newFile = new File(child.getParent(), newfileName);
+				  Files.move(child.toPath(), newFile.toPath());
+			  }
+		  }
+		  
+		  directoryListing = dir.listFiles();
+		  Arrays.sort(directoryListing, new Comparator()
+          {
+              //@Override
+              public int compare(Object f1, Object f2) {
+                  return ((File) f1).getName().compareTo(((File) f2).getName());
+              }
+          });
+		  
+		  List<File> fistFileList = new ArrayList();
+		  
+		  
+		  if (directoryListing != null) {
+		    for (File child : directoryListing) {
+		    	if (child.getName().contains("_out")) {
+		    		continue;
+		    	}
+		    	if (child.getName().contains(".001.txt")) {
+		    		//System.out.println(child.getName());
+		    		fistFileList.add(child);
+		    		//decryptFile(child.getName());
+		    	}	
+		    }
+		    
+		    AtomicInteger countInteger = new AtomicInteger(); 
+		    for  (File firstFile:fistFileList) {
+		    	String basename = FilenameUtils.getBaseName(firstFile.getName());
+		    	int lastPoint = basename.lastIndexOf(".");
+		    	String prefixName = firstFile.getName().substring(0, lastPoint);
+		    	System.out.println("prefixName os file is:"+prefixName);
+		    	
+		    	String aggregateFileName = firstFile.getParent() +"/" + prefixName+".total.txt";
+		    	
+		    	for (File child : directoryListing) {
+		    		if (child.getName().contains(prefixName)) {
+		    			FileMerger.concatFile(child.getPath(), aggregateFileName,countInteger);
+		    			System.out.println("concat file:"+child.getPath()+" to "+ aggregateFileName);
+		    			
+		    		}
+		    	}
+		    	System.out.println("-----------------------------------");
+		    	
+		    }
+		  }
+		  
+		  
+		  System.out.println("end of list");
+	}
+
+	private static void decryptFile(String curfileName,String dir) {
+		System.out.println("working in file:"+curfileName);
+		
+		String fileInput = dir+"/"+curfileName;
+		String ext= FilenameUtils.getExtension(fileInput);
+		String fileName = FilenameUtils.getBaseName(fileInput);
+		String fileOutput = dir+"/"+fileName + "_out" + "." + ext;
+		
+		File f = new File(fileOutput);
+		if(f.exists() && !f.isDirectory()) { 
+		    System.out.println("file:"+fileOutput+" already exists. no need");
+		    //return;
+		}
+		try {
+			decryptFileFullPath(fileInput,fileOutput);
+			
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+
+	private static StrongTextEncryptor createEncryptor() {
+		StrongTextEncryptor encryptor = new StrongTextEncryptor();
+		//encryptor.setPassword("Yuval123!Guy789!Carmel456!");
+		encryptor.setPassword("Yuval123!Guy789!");
+		return encryptor;
+	}
+	private static void decryptFileFullPath(String fileName,String outputFile) throws IOException {
+		StrongTextEncryptor encryptor = createEncryptor();
+		InputStream inputStream = new FileInputStream(fileName);
+		BufferedReader br=new BufferedReader(new InputStreamReader(inputStream));
+		
+		FileOutputStream fos = new FileOutputStream(outputFile);
+		 
+		BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(fos));
+		int num=0;
+		String line = null;
+		String output = "";
+		while ( (line=br.readLine())!= null) {
+			//System.out.println(line);
+			output="";
+			try {
+				 output = encryptor.decrypt(line);
+			}catch(Exception e) {
+				continue;
+			}
+			writer.write(output);
+			writer.newLine();
+			num++;
+			System.out.println(output);
+		}
+		writer.close();
+		System.out.println("file:" + outputFile + " was created, num of lines:" + num);
+		
+		
+	}
+	
+}
+
+
+file Read:C:\shai\Workspace\util\src\main\java\com\util\FileCompare.java
+-----------------------------------------------------
+package com.util;
+
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
+
+public class FileCompare {
+
+	public static void main(String[] args) throws IOException {
+
+		
+		String TEMP1_FOLDER="C:\\shai\\temp1";
+		String TEMP2_FOLDER="C:\\shai\\temp2";
+		
+		File srcFile=new File(TEMP1_FOLDER);
+		File trgFile=new File(TEMP2_FOLDER);
+		listAllFiles(srcFile,trgFile,validateFiles);
+	}
+	
+	static String[] validateFiles = new String[] {"txt"};
+	
+    public static void listAllFiles(final File folderSrc,final File folderTrg, String[] specificFiles) throws FileNotFoundException, IOException {
+    	
+//    	String[] selectValidateFiles = validateFiles;
+//    	if (specificFiles!=null) {
+//    		selectValidateFiles = specificFiles;
+//    	}
+    	List<String> fileSrcNameList = new ArrayList<String>();
+    	List<String> fileTrgNameList = new ArrayList<String>();
+    	
+        for (final File fileEntry : folderSrc.listFiles()) {
+            if (fileEntry.isDirectory()) {
+//                listAllFiles(fileEntry,fileOutput,countInteger,selectValidateFiles);
+            } else {
+            	//System.out.println("check file:"+fileEntry.getAbsolutePath());
+            	if (checkIfFileHasExtension(fileEntry.getName(),validateFiles)) {
+            		fileSrcNameList.add(fileEntry.getName());
+            		//System.out.println(fileEntry.getAbsolutePath());
+            		
+            		//concatFile(fileEntry.getAbsolutePath(),fileOutput,countInteger);
+            	}else {
+            		//System.out.println("skip on file:"+fileEntry.getAbsolutePath());
+            	}
+            }
+        }
+        
+        for (final File fileEntry : folderTrg.listFiles()) {
+            if (fileEntry.isDirectory()) {
+//                listAllFiles(fileEntry,fileOutput,countInteger,selectValidateFiles);
+            } else {
+            	//System.out.println("check file:"+fileEntry.getAbsolutePath());
+            	if (checkIfFileHasExtension(fileEntry.getName(),validateFiles)) {
+            		fileTrgNameList.add(fileEntry.getName());
+            		//System.out.println(fileEntry.getAbsolutePath());
+            		
+            		//concatFile(fileEntry.getAbsolutePath(),fileOutput,countInteger);
+            	}else {
+            		//System.out.println("skip on file:"+fileEntry.getAbsolutePath());
+            	}
+            }
+        }
+        Collections.sort(fileSrcNameList);
+        Collections.sort(fileTrgNameList);
+        AtomicInteger countInteger=new AtomicInteger(0); 
+        int i=0;
+        for (String fileNameTrg : fileTrgNameList) {
+//        	if (i>=fileTrgNameList.size()) {
+//        		continue;
+//        	}
+        	
+        	String fileNameSrc = findFile(fileNameTrg,fileSrcNameList);
+        	if (fileNameSrc==null) {
+        		System.err.println("not found for:"+ fileNameTrg+" .skip");
+        		continue;
+        	}
+        	compare(folderSrc,fileNameSrc,folderTrg, fileNameTrg,countInteger);
+		}
+		System.out.println("total equals file:" + countInteger);
+
+        
+        
+    }
+	public static String findFile(String fileTrg,List<String> listSources) {
+        
+		String startSrcName=fileTrg.substring(0,fileTrg.indexOf("_"));
+	    for (String fileNameSrc : listSources) {
+	
+	    	String startTrgName=fileNameSrc.substring(0,fileNameSrc.indexOf("_"));
+	    	if (startSrcName.equals(startTrgName)) {
+	    		return fileNameSrc;
+	    	}
+	    }
+	    
+	    return null;
+	}
+    
+    	public static boolean checkIfFileHasExtension(String s, String[] validateFiles) {
+    	    return Arrays.stream(validateFiles).anyMatch(entry -> s.endsWith(entry));
+    	}	
+        
+        
+    	public static void compare(File folderSrc,String fileSrcStr, File folderTrg,String fileTrgStr,AtomicInteger countInteger) throws FileNotFoundException, IOException {
+    		Path fileSrc  =Paths.get(folderSrc.getAbsolutePath() +"\\"+ fileSrcStr);
+    		long fileSrcBytes = Files.size(fileSrc);
+    		  // Output file
+    	    Path fileTrg = Paths.get(folderTrg.getAbsolutePath() +"\\" + fileTrgStr);
+    		long fileTrgBytes = Files.size(fileTrg);
+    		System.out.println("src:"+fileSrcStr);
+    		String startSrcName=fileSrcStr.substring(0,fileSrcStr.indexOf("_"));
+    		String startTrgName=fileTrgStr.substring(0,fileTrgStr.indexOf("_"));
+    		if (startSrcName.equals(startTrgName)) {
+    			if (fileSrcBytes !=fileTrgBytes) {
+    				System.err.println("no same size in file:"+startSrcName + ",sizes:" + fileSrcBytes +"," + fileTrgBytes);
+    			}else {
+    				countInteger.incrementAndGet();
+    			}
+    			
+    		}else {
+    			System.out.println("different in sort: "+startSrcName + " and " + startTrgName );
+    		}
+            
+    	   
+    	}
+        
+
+}
+
+
+file Read:C:\shai\Workspace\util\src\main\java\com\util\FileList.java
+-----------------------------------------------------
+package com.util;
+
+import java.io.File;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+
+import org.apache.commons.io.FileUtils;
+
+public class FileList {
+
+	public static void main(String[] args) throws IOException {
+
+//			String INPUT_FOLDER="C:\\shai\\apigee\\input";		
+//			String OUTPUT_FOLDER="C:\\shai\\apigee\\output";
+
+//		String INPUT_FOLDER = "\\\\popnasru01\\install\\shaiShalom\\swagger\\input";
+		String OUTPUT_FOLDER = "C:\\shai\\temp3";
+
+		File outputFolder = new File(OUTPUT_FOLDER);
+
+		//FileUtils.cleanDirectory(new File(OUTPUT_FOLDER));
+		System.out.println("cleaning all files in:" + OUTPUT_FOLDER);
+		List<String> lines = new ArrayList<>();
+		for (final File fileEntry : outputFolder.listFiles()) {
+			System.out.println(fileEntry.getName());
+			String txt = "copy /b NUL " + fileEntry.getName();
+			lines.add(txt);
+		}
+		String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());	
+	
+		String outputFileStr = OUTPUT_FOLDER +"\\aaaFileList" + "_" + timeStamp + ".txt";
+		Path output = Paths.get(outputFileStr);
+		Files.write(output, lines, StandardCharsets.UTF_8, StandardOpenOption.CREATE,StandardOpenOption.APPEND);
+
+	}
+
+}
+
+
+file Read:C:\shai\Workspace\util\src\main\java\com\util\FileMerger.java
+-----------------------------------------------------
+package com.util;
+
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import org.apache.commons.io.FileUtils;
+
+public class FileMerger {
+
+	
+	
+	static String TEMP_DIR="C:\\shai\\temp3";
+	static String DOCUMENTUM_DIR="C:\\Users\\AP068\\git\\documentum";
+	
+	public static void main(String[] args) throws IOException {
+		
+		FileUtils.cleanDirectory(new File(TEMP_DIR));
+		System.out.println("cleaning all files in:"+TEMP_DIR);
+		
+		concat("C:\\shai\\work","settings");
+		concat("C:\\Users\\AP068\\git\\hapoalim-service-generator","frontend");
+		concat("C:\\Users\\AP068\\git\\hapoalim-service-generator","backend");
+		concat("C:\\Users\\AP068\\git","poalim-cli");
+
+		concat(DOCUMENTUM_DIR,"dudctmrest");
+		concat(DOCUMENTUM_DIR,"dudctmrest-cd-dev");
+		concat(DOCUMENTUM_DIR,"duecmcustomerdars");
+		concat(DOCUMENTUM_DIR,"duecmcustomerdfservices");
+		concat(DOCUMENTUM_DIR,"duecmcustomerexamples");
+		concat(DOCUMENTUM_DIR,"duecmcustomerparent");
+		concat(DOCUMENTUM_DIR,"duecmcustomerwrappers");
+		concat(DOCUMENTUM_DIR,"duecmgeneralservices");
+		concat(DOCUMENTUM_DIR,"duecmzipretrieve");
+		concat(DOCUMENTUM_DIR,"explang");
+		concat(DOCUMENTUM_DIR,"rest-cd-dev");
+		concat(DOCUMENTUM_DIR,"rest-cd-prod");
+		concat(DOCUMENTUM_DIR,"script");
+		concat(DOCUMENTUM_DIR,"template-cd-prod");
+		concat(DOCUMENTUM_DIR,"templates-cd-dev");
+		concat(DOCUMENTUM_DIR,"templates-cd");
+		concat(DOCUMENTUM_DIR,"common-project");
+		concat(DOCUMENTUM_DIR,"dctm-build-base");
+		concat(DOCUMENTUM_DIR,"dctm-build-full");
+		concat(DOCUMENTUM_DIR,"dctm-interface");
+		concat(DOCUMENTUM_DIR,"dctm-interface");
+//
+		concat("C:\\shai\\workspace-C#","dbo-clone");
+		concat("C:\\shai\\workspace-C#","dbo");
+		concat("C:\\shai\\workspace-C#","Base64Windows");
+		concat("C:\\shai\\workspace-C#","ConsoleApp1");
+		concat("C:\\Users\\AP068\\git","kafka");
+		concat("C:\\Users\\AP068\\git","shai-account-data");
+		concat("C:\\Users\\AP068\\git","account-data-ol");
+		concat("C:\\Users\\AP068\\git","accounts-cards-api");
+		concat("C:\\Users\\AP068\\git","corporate-actions-ops");
+		concat("C:\\Users\\AP068\\git","card-order-ol");
+		concat("C:\\Users\\AP068\\git","card-operator-ol");
+		concat("C:\\Users\\AP068\\git","sig-verify-sanitizer");
+		concat("C:\\shai\\work","script");
+		concat("C:\\shai","work",new String[] {"txt"});
+		concat("C:\\shai\\Workspace","util");
+		
+		
+		
+
+		
+		
+	}
+	
+	private static void concat(String rootPath,String project,String[] specificValidateFiles) throws IOException {
+		String path = rootPath + "\\" + project;
+		File folder = new File(path);
+		String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());	
+		
+		String outputFileStr=TEMP_DIR +"\\" +  project  + "_"+ timeStamp + ".txt";
+		File outputFile = new File(outputFileStr);
+		Path output = Paths.get(outputFileStr);
+//		Files.write(output, lines, StandardCharsets.UTF_8, StandardOpenOption.CREATE,StandardOpenOption.APPEND);
+		AtomicInteger countInteger = new AtomicInteger(0); 
+		listAllFiles(folder, outputFile.getAbsolutePath(),countInteger,specificValidateFiles);
+		System.out.println("file created:"+outputFileStr+ ", total files:"+countInteger.get());
+		List<String> lines = new ArrayList();
+		lines.add("total files:" + countInteger.get());
+		Files.write(output, lines, StandardCharsets.UTF_8, StandardOpenOption.CREATE,StandardOpenOption.APPEND);
+		
+	}
+	
+
+	private static void concat(String rootPath,String project) throws IOException {
+		
+		concat(rootPath,project,null);
+		
+	}
+	
+	
+	static String[] validateFiles = new String[] {"java","sh","properties", "yml", "yaml","cmd","txt" , "xml", ".l" , "ini","md" ,"hosts","vault-password", "template" ,"sample", "Dockerfile" , "tag", "csproj","config","cs","resx","user","sln","json",".gitignore",".gitattributes","key","tpl","mk","groovy","bash", "py", "epf", "mxtsessions",".ts",".html",".scss"};
+//	static List<String> validateFilesList = Arrays.asList(validateFiles);
+	
+	
+	public static boolean checkIfFileHasExtension(String s, String[] validateFiles) {
+	    return Arrays.stream(validateFiles).anyMatch(entry -> s.endsWith(entry));
+	}	
+	
+
+	public static void concatFile(String fileRead, String fileOutput,AtomicInteger countInteger) throws FileNotFoundException, IOException {
+		Path input  =Paths.get(fileRead);
+		  // Output file
+	    Path output = Paths.get(fileOutput);
+
+	    // Charset for read and write
+	    Charset charset = StandardCharsets.UTF_8;
+
+	    // Join files (lines)
+	    List<String> lines = null;
+        try {
+        	lines = Files.readAllLines(input, charset);
+        }catch(Exception e){
+        	
+            try {
+            	lines = Files.readAllLines(input, StandardCharsets.ISO_8859_1);
+            }catch(Exception e1){
+            	e1.printStackTrace();
+            }
+            
+        }
+        	
+        lines.add(0, "\n");
+        lines.add(1, "file Read:" + fileRead);
+        lines.add(2, "-----------------------------------------------------");
+        countInteger.getAndIncrement();
+        
+    	System.out.println("handle file:"+fileRead);
+	    Files.write(output, lines, charset, StandardOpenOption.CREATE,StandardOpenOption.APPEND);
+        
+	   
+	}
+
+	
+    public static void listAllFiles(final File folder,String fileOutput,AtomicInteger countInteger,String[] specificFiles) throws FileNotFoundException, IOException {
+    	
+    	String[] selectValidateFiles = validateFiles;
+    	if (specificFiles!=null) {
+    		selectValidateFiles = specificFiles;
+    	}
+        for (final File fileEntry : folder.listFiles()) {
+            if (fileEntry.isDirectory()) {
+                listAllFiles(fileEntry,fileOutput,countInteger,selectValidateFiles);
+            } else {
+//            	if (fileEntry.getName().endsWith(".dll")) {
+//            		System.out.println("sss");
+//            	}
+            	//System.out.println("check file:"+fileEntry.getAbsolutePath());
+            	if (checkIfFileHasExtension(fileEntry.getName(),validateFiles)) {
+            		//System.out.println(fileEntry.getAbsolutePath());
+            		
+            		concatFile(fileEntry.getAbsolutePath(),fileOutput,countInteger);
+            	}else {
+            		//System.out.println("skip on file:"+fileEntry.getAbsolutePath());
+            	}
+            }
+        }
+    }	
+}
+
+
+file Read:C:\shai\Workspace\util\src\main\java\com\util\FileSplitter.java
+-----------------------------------------------------
+package com.util;
+
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+public class FileSplitter {
+
+	public static void main(String[] args) {
+		// TODO Auto-generated method stub
+
+		//for specific
+		String f="C:\\shai\\temp\\2\\nn_20200908_231908.total_out.txt";
+		try {
+			splitFile(f,"c:/shai/temp/files2");
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	
+		//for all dir
+//		File dir = new File(Decryptor.DIR);
+//		
+//		  File[] directoryListing = dir.listFiles();
+//		  if (directoryListing != null) {
+//		    for (File child : directoryListing) {
+//		    	if (child.getName().contains("_out")) {
+//		    		try {
+//		    			System.out.println("working on file:"+child.getName());
+//						splitFile(child.getAbsolutePath(),"c:/shai/temp/2");
+//					} catch (IOException e) {
+//						// TODO Auto-generated catch block
+//						e.printStackTrace();
+//					} catch (InterruptedException e) {
+//						// TODO Auto-generated catch block
+//						e.printStackTrace();
+//					}
+//		    	}
+//		    }
+//		  }
+		  
+		System.out.println("end of list");
+		
+
+		
+	}
+
+	private static void splitFile(String fullFileName, String myDir) throws IOException, InterruptedException {
+		InputStream inputStream = new FileInputStream(fullFileName);
+		BufferedReader br=new BufferedReader(new InputStreamReader(inputStream));
+		
+		FileOutputStream fos = null;//new FileOutputStream(outputFile);
+		BufferedWriter writer = null;
+		String newFileName=null;
+		//BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(fos));
+		int num=0;
+		String line = null;
+		String pattern1 = "^E:\\\\workspaces.*";
+		String pattern2 = "^M:\\\\shai\\\\work.*";
+		Pattern r1 = Pattern.compile(pattern1);
+		Pattern r2 = Pattern.compile(pattern2);
+		
+		
+		while ( (line=br.readLine())!= null) {
+			Matcher m1 = r1.matcher(line);
+			Matcher m2 = r2.matcher(line);
+			if (m1.find()|| m2.find()){
+				if (line.contains("org.eclipse.wst.common")) {
+					continue;
+				}
+				if (line.contains("list key=")) {
+					continue;
+				}
+				if (line.contains(".metadata")) {
+					continue;
+				}
+				if (line.contains("<item value")) {
+					continue;
+				}
+				if (line.endsWith("\";")) {
+					continue;
+				}
+				
+//				if (line.contains("cleanAimTargets")) {
+//					System.out.println("line="+line);
+//				}
+				
+				
+				System.out.println("working on line:"+line + " in file:"+newFileName);
+				
+				if (writer!=null) {
+					writer.close();
+					fos.close();
+					writer =null;
+					//System.out.println("file:" + newFileName + " was finished, num of lines:" + num);
+				}
+				newFileName=line.replace("e:\\workspaces", myDir);
+				newFileName=newFileName.replace("E:\\workspaces", myDir);
+				newFileName=line.replace("M:\\shai\\work", myDir);
+				newFileName=newFileName.replace("m:\\shai\\work", myDir);
+				
+				File outputfile = new File(newFileName);
+				//create dir if not exists
+				
+				
+				File parent = outputfile.getParentFile();
+				if (!parent.exists()) {
+		            if (parent.mkdirs()) {
+		            	System.out.println("Multiple directories are created!:"+newFileName);
+		            } else {
+		                System.out.println("Failed to create multiple directories:"+newFileName);
+		            }
+				}
+				
+//				boolean isDirectoryCreated = parent.mkdirs();
+//				
+//				if (!isDirectoryCreated) {
+//				    throw new IllegalStateException("Couldn't create dir: " + parent);
+//				}
+				//create the file
+				if (outputfile.createNewFile()){
+					fos = new FileOutputStream(outputfile);
+					writer = new BufferedWriter(new OutputStreamWriter(fos));
+					Thread.sleep(1000);
+					System.out.println("file:"+newFileName+" was created and opened");
+					num=0;
+				}
+			}else if (line.contains("-----------------------------")){
+				
+			}else {
+				
+				if (writer!=null) {
+					try {
+						writer.write(line);	
+						writer.newLine();
+						num++;
+					}catch(IOException ioe) {
+						//fos = new FileOutputStream(outputfile);
+						writer = new BufferedWriter(new OutputStreamWriter(fos));
+						
+						System.out.println("error in writing line:"+line+ ",with file:"+newFileName);	
+					}
+				}
+			}
+			
+		}
+		if (writer!=null) {
+			writer.close();
+			fos.close();
+			System.out.println("file:" + newFileName + " was created, num of lines:" + num);
+			num=0;
+		}
+		
+	
+		
+	}
+
+}
+
+
+file Read:C:\shai\Workspace\util\src\main\java\com\util\SwaggerUtil.java
+-----------------------------------------------------
+package com.util;
+
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.List;
+
+import org.apache.commons.io.FileUtils;
+import org.json.JSONArray;
+import org.json.JSONObject;
+public class SwaggerUtil {
+
+	static String[] validateFiles = new String[] {"json"};		
+
+	public static void main(String[] args) throws IOException {
+
+//		String INPUT_FOLDER="C:\\shai\\apigee\\input";		
+//		String OUTPUT_FOLDER="C:\\shai\\apigee\\output";
+
+		String INPUT_FOLDER="\\\\popnasru01\\install\\shaiShalom\\swagger\\input";		
+		String OUTPUT_FOLDER="\\\\popnasru01\\install\\shaiShalom\\swagger\\output";
+		
+		
+		File srcFolder=new File(INPUT_FOLDER);
+		
+		FileUtils.cleanDirectory(new File(OUTPUT_FOLDER));
+		System.out.println("cleaning all files in:"+OUTPUT_FOLDER);		
+        for (final File fileEntry : srcFolder.listFiles()) {
+            if (fileEntry.isDirectory()) {
+//                listAllFiles(fileEntry,fileOutput,countInteger,selectValidateFiles);
+            } else {
+            	
+            	if (checkIfFileHasExtension(fileEntry.getName(),validateFiles)) {            	
+                	System.out.println("handle file:"+fileEntry.getAbsolutePath());
+            		handleFile(fileEntry.getAbsolutePath(),OUTPUT_FOLDER);
+            	}
+            }
+        }
+	}
+
+	public static boolean checkIfFileHasExtension(String s, String[] validateFiles) {
+	    return Arrays.stream(validateFiles).anyMatch(entry -> s.endsWith(entry));
+	}	
+	
+	public static void main1(String[] args) {
+
+		//String jsonString = ... ; //assign your JSON String here
+		String file = "C:/shai/apigee/PingApi1.0.json";
+		String jsonContent = getFileContent(file);
+		JSONObject obj = new JSONObject(jsonContent);
+		JSONObject infoPath = obj.getJSONObject("info");
+		//JSONObject objPath = obj.getJSONObject("info");
+		String desc = infoPath.getString("description");
+
+		JSONObject pathJsonObject = obj.getJSONObject("paths");
+		JSONObject slashJsonObject = pathJsonObject.getJSONObject("/");
+		JSONObject getJsonObject = slashJsonObject.getJSONObject("get");
+		
+//		String tierValue = getJsonObject.getString("x-throttling-tier");
+//		JSONArray list = new JSONArray();
+//		JSONObject jsonObject = new JSONObject();
+//		jsonObject.put("PUBLIC","");
+//		list.put(jsonObject);
+//		getJsonObject.accumulate("x-business-permissions",list);
+
+		getJsonObject.append("x-business-permissions", "[\"PUBLIC\"]");
+		String output = obj.toString();
+		System.out.println(output);
+//		JSONObject objPath = obj.getJSONObject("paths");
+		
+	//	String path = objPath.getString("get");
+		System.out.println(pathJsonObject);
+//		jsonObject.get
+//		JSONArray arr = obj.getJSONArray("posts"); // notice that `"posts": [...]`
+//		for (int i = 0; i < arr.length(); i++)
+//		{
+//		    String post_id = arr.getJSONObject(i).getString("post_id");
+//		    ......
+//		}		
+	}
+
+	
+	public static void handleFile(String file,String outputPath) {
+		
+		//String jsonString = ... ; //assign your JSON String here
+//		file = "C:/shai/apigee/PingApi1.0.json";
+		String jsonContent = getFileContent(file);
+		
+
+		
+		//String outputFileStr = 
+		JSONObject obj = new JSONObject(jsonContent);
+		JSONObject infoPath = obj.getJSONObject("info");
+		//JSONObject objPath = obj.getJSONObject("info");
+//		String desc = infoPath.getString("description");
+//		JSONObject hostJsonObject = obj.getJSONObject("host");
+		if (! obj.has("host")){
+			System.out.println("file:" + file + " had missing host key:");
+			obj.put("host", "build");
+		}
+/*
+		JSONObject pathJsonObject = obj.getJSONObject("paths");
+		Iterator<String> keys = pathJsonObject.keys();
+		while (keys.hasNext()) {
+		
+			String action = keys.next();
+			System.out.println("work on action:"+action);
+		
+//		for (int i=0;i<=pathJsonObjectArr.length();i++) {
+//			JSONObject pathJsonObject= pathJsonObjectArr.getJSONObject(i);
+			JSONObject slashJsonObject = pathJsonObject.getJSONObject(action);
+			String method=slashJsonObject.keys().next();
+			JSONObject getPostJsonObject = slashJsonObject.getJSONObject(method);
+			String tierValue = getPostJsonObject.getString("x-throttling-tier");
+//			JSONArray list = new JSONArray();
+//			JSONObject jsonObject = new JSONObject();
+//			jsonObject.put("PUBLIC","");
+//			list.put(jsonObject);
+//			getPostJsonObject.accumulate("x-business-permissions",list);
+			String publicInParthness = "[" + "\"" + "PUBLIC" + "\""+ "]";
+			getPostJsonObject.append("x-business-permissions", publicInParthness);
+			
+		}
+*/		
+		jsonContent = obj.toString();
+		System.out.println(jsonContent);
+		
+		
+		
+		
+		String textSource = "\"Unlimited\"";
+		String textTarget = textSource +  ", \"x-business-permissions\":[\"PUBLIC\"]";
+        String output = jsonContent.replaceAll(textSource, textTarget);
+
+        
+        
+        Path inputPath  =Paths.get(file);
+		String outputFile = outputPath + "/" +inputPath.getFileName(); 
+/*		
+*/		
+		try {
+			FileWriter fileWriter = new FileWriter(outputFile);
+			fileWriter.write(output);
+			fileWriter.close();
+			System.out.println("file:"+ outputFile+ " was created");
+		}catch (IOException e) {
+			e.printStackTrace();
+		}
+		
+		
+//		JSONObject objPath = obj.getJSONObject("paths");
+		
+	//	String path = objPath.getString("get");
+//		System.out.println(pathJsonObject);
+		
+//		jsonObject.get
+//		JSONArray arr = obj.getJSONArray("posts"); // notice that `"posts": [...]`
+//		for (int i = 0; i < arr.length(); i++)
+//		{
+//		    String post_id = arr.getJSONObject(i).getString("post_id");
+//		    ......
+//		}		
+		
+		
+	}
+	
+	public static String getFileContent(String fileRead) {
+		Path input  =Paths.get(fileRead);
+
+	    // Charset for read and write
+	    Charset charset = StandardCharsets.UTF_8;
+
+	    // Join files (lines)
+	    List<String> lines = null;
+        try {
+	      	lines = Files.readAllLines(input, charset);
+	    }catch(Exception e){
+	      	
+          try {
+          	lines = Files.readAllLines(input, StandardCharsets.ISO_8859_1);
+          }catch(Exception e1){
+          	e1.printStackTrace();
+          }
+	          
+        }
+        StringBuilder sb = new StringBuilder(); 
+        for (String line:lines) {
+        	sb.append(line);
+        }
+        
+        return sb.toString();
+		
+	}
+	
+	
+
+}
+
+
+file Read:C:\shai\Workspace\util\src\test\java\com\util\AppTest.java
+-----------------------------------------------------
+package com.util;
+
+import junit.framework.Test;
+import junit.framework.TestCase;
+import junit.framework.TestSuite;
+
+/**
+ * Unit test for simple App.
+ */
+public class AppTest 
+    extends TestCase
+{
+    /**
+     * Create the test case
+     *
+     * @param testName name of the test case
+     */
+    public AppTest( String testName )
+    {
+        super( testName );
+    }
+
+    /**
+     * @return the suite of tests being tested
+     */
+    public static Test suite()
+    {
+        return new TestSuite( AppTest.class );
+    }
+
+    /**
+     * Rigourous Test :-)
+     */
+    public void testApp()
+    {
+        assertTrue( true );
+    }
+}
+
+
+file Read:C:\shai\Workspace\util\target\classes\META-INF\maven\com\util\pom.properties
+-----------------------------------------------------
+#Generated by Maven Integration for Eclipse
+#Mon Jul 19 14:22:27 IDT 2021
+m2e.projectLocation=C\:\\shai\\Workspace\\util
+m2e.projectName=util
+groupId=com
+artifactId=util
+version=0.0.1-SNAPSHOT
+
+
+file Read:C:\shai\Workspace\util\target\classes\META-INF\maven\com\util\pom.xml
+-----------------------------------------------------
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>com</groupId>
+  <artifactId>util</artifactId>
+  <version>0.0.1-SNAPSHOT</version>
+  <packaging>jar</packaging>
+
+  <name>util</name>
+  <url>http://maven.apache.org</url>
+
+  <properties>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<maven.compiler.target>1.8</maven.compiler.target>
+		<maven.compiler.source>1.8</maven.compiler.source>
+  </properties>
+
+  	<dependencies>
+		<dependency>
+			<groupId>junit</groupId>
+			<artifactId>junit</artifactId>
+			<version>3.8.1</version>
+			<scope>test</scope>
+		</dependency>
+
+		<!-- https://mvnrepository.com/artifact/org.jasypt/jasypt -->
+		<dependency>
+			<groupId>org.jasypt</groupId>
+			<artifactId>jasypt</artifactId>
+			<version>1.9.2</version>
+		</dependency>
+
+		<!-- https://mvnrepository.com/artifact/commons-io/commons-io -->
+		<dependency>
+			<groupId>commons-io</groupId>
+			<artifactId>commons-io</artifactId>
+			<version>2.6</version>
+		</dependency>
+
+		<!-- https://mvnrepository.com/artifact/org.apache.commons/commons-lang3 -->
+		<dependency>
+			<groupId>org.apache.commons</groupId>
+			<artifactId>commons-lang3</artifactId>
+			<version>3.9</version>
+		</dependency>
+		
+		<dependency>
+			<groupId>org.json</groupId>
+			<artifactId>json</artifactId>
+			<version>20201115</version>
+		</dependency>
+
+	</dependencies>
+  
+</project>
+total files:12

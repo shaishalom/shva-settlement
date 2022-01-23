@@ -1,0 +1,3066 @@
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\.git\config
+-----------------------------------------------------
+[core]
+	repositoryformatversion = 0
+	filemode = false
+	bare = false
+	logallrefupdates = true
+	symlinks = false
+	ignorecase = true
+[remote "origin"]
+	url = ssh://git@gitlab.devops.poalim.bank:31007/I0MN/rabbitmq-custom-manager-operator.git
+	fetch = +refs/heads/*:refs/remotes/origin/*
+[branch "master"]
+	remote = origin
+	merge = refs/heads/master
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\.git\hooks\applypatch-msg.sample
+-----------------------------------------------------
+#!/bin/sh
+#
+# An example hook script to check the commit log message taken by
+# applypatch from an e-mail message.
+#
+# The hook should exit with non-zero status after issuing an
+# appropriate message if it wants to stop the commit.  The hook is
+# allowed to edit the commit message file.
+#
+# To enable this hook, rename this file to "applypatch-msg".
+
+. git-sh-setup
+commitmsg="$(git rev-parse --git-path hooks/commit-msg)"
+test -x "$commitmsg" && exec "$commitmsg" ${1+"$@"}
+:
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\.git\hooks\commit-msg.sample
+-----------------------------------------------------
+#!/bin/sh
+#
+# An example hook script to check the commit log message.
+# Called by "git commit" with one argument, the name of the file
+# that has the commit message.  The hook should exit with non-zero
+# status after issuing an appropriate message if it wants to stop the
+# commit.  The hook is allowed to edit the commit message file.
+#
+# To enable this hook, rename this file to "commit-msg".
+
+# Uncomment the below to add a Signed-off-by line to the message.
+# Doing this in a hook is a bad idea in general, but the prepare-commit-msg
+# hook is more suited to it.
+#
+# SOB=$(git var GIT_AUTHOR_IDENT | sed -n 's/^\(.*>\).*$/Signed-off-by: \1/p')
+# grep -qs "^$SOB" "$1" || echo "$SOB" >> "$1"
+
+# This example catches duplicate Signed-off-by lines.
+
+test "" = "$(grep '^Signed-off-by: ' "$1" |
+	 sort | uniq -c | sed -e '/^[ 	]*1[ 	]/d')" || {
+	echo >&2 Duplicate Signed-off-by lines.
+	exit 1
+}
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\.git\hooks\fsmonitor-watchman.sample
+-----------------------------------------------------
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+use IPC::Open2;
+
+# An example hook script to integrate Watchman
+# (https://facebook.github.io/watchman/) with git to speed up detecting
+# new and modified files.
+#
+# The hook is passed a version (currently 1) and a time in nanoseconds
+# formatted as a string and outputs to stdout all files that have been
+# modified since the given time. Paths must be relative to the root of
+# the working tree and separated by a single NUL.
+#
+# To enable this hook, rename this file to "query-watchman" and set
+# 'git config core.fsmonitor .git/hooks/query-watchman'
+#
+my ($version, $time) = @ARGV;
+
+# Check the hook interface version
+
+if ($version == 1) {
+	# convert nanoseconds to seconds
+	$time = int $time / 1000000000;
+} else {
+	die "Unsupported query-fsmonitor hook version '$version'.\n" .
+	    "Falling back to scanning...\n";
+}
+
+my $git_work_tree;
+if ($^O =~ 'msys' || $^O =~ 'cygwin') {
+	$git_work_tree = Win32::GetCwd();
+	$git_work_tree =~ tr/\\/\//;
+} else {
+	require Cwd;
+	$git_work_tree = Cwd::cwd();
+}
+
+my $retry = 1;
+
+launch_watchman();
+
+sub launch_watchman {
+
+	my $pid = open2(\*CHLD_OUT, \*CHLD_IN, 'watchman -j --no-pretty')
+	    or die "open2() failed: $!\n" .
+	    "Falling back to scanning...\n";
+
+	# In the query expression below we're asking for names of files that
+	# changed since $time but were not transient (ie created after
+	# $time but no longer exist).
+	#
+	# To accomplish this, we're using the "since" generator to use the
+	# recency index to select candidate nodes and "fields" to limit the
+	# output to file names only. Then we're using the "expression" term to
+	# further constrain the results.
+	#
+	# The category of transient files that we want to ignore will have a
+	# creation clock (cclock) newer than $time_t value and will also not
+	# currently exist.
+
+	my $query = <<"	END";
+		["query", "$git_work_tree", {
+			"since": $time,
+			"fields": ["name"],
+			"expression": ["not", ["allof", ["since", $time, "cclock"], ["not", "exists"]]]
+		}]
+	END
+
+	print CHLD_IN $query;
+	close CHLD_IN;
+	my $response = do {local $/; <CHLD_OUT>};
+
+	die "Watchman: command returned no output.\n" .
+	    "Falling back to scanning...\n" if $response eq "";
+	die "Watchman: command returned invalid output: $response\n" .
+	    "Falling back to scanning...\n" unless $response =~ /^\{/;
+
+	my $json_pkg;
+	eval {
+		require JSON::XS;
+		$json_pkg = "JSON::XS";
+		1;
+	} or do {
+		require JSON::PP;
+		$json_pkg = "JSON::PP";
+	};
+
+	my $o = $json_pkg->new->utf8->decode($response);
+
+	if ($retry > 0 and $o->{error} and $o->{error} =~ m/unable to resolve root .* directory (.*) is not watched/) {
+		print STDERR "Adding '$git_work_tree' to watchman's watch list.\n";
+		$retry--;
+		qx/watchman watch "$git_work_tree"/;
+		die "Failed to make watchman watch '$git_work_tree'.\n" .
+		    "Falling back to scanning...\n" if $? != 0;
+
+		# Watchman will always return all files on the first query so
+		# return the fast "everything is dirty" flag to git and do the
+		# Watchman query just to get it over with now so we won't pay
+		# the cost in git to look up each individual file.
+		print "/\0";
+		eval { launch_watchman() };
+		exit 0;
+	}
+
+	die "Watchman: $o->{error}.\n" .
+	    "Falling back to scanning...\n" if $o->{error};
+
+	binmode STDOUT, ":utf8";
+	local $, = "\0";
+	print @{$o->{files}};
+}
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\.git\hooks\post-update.sample
+-----------------------------------------------------
+#!/bin/sh
+#
+# An example hook script to prepare a packed repository for use over
+# dumb transports.
+#
+# To enable this hook, rename this file to "post-update".
+
+exec git update-server-info
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\.git\hooks\pre-applypatch.sample
+-----------------------------------------------------
+#!/bin/sh
+#
+# An example hook script to verify what is about to be committed
+# by applypatch from an e-mail message.
+#
+# The hook should exit with non-zero status after issuing an
+# appropriate message if it wants to stop the commit.
+#
+# To enable this hook, rename this file to "pre-applypatch".
+
+. git-sh-setup
+precommit="$(git rev-parse --git-path hooks/pre-commit)"
+test -x "$precommit" && exec "$precommit" ${1+"$@"}
+:
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\.git\hooks\pre-commit.sample
+-----------------------------------------------------
+#!/bin/sh
+#
+# An example hook script to verify what is about to be committed.
+# Called by "git commit" with no arguments.  The hook should
+# exit with non-zero status after issuing an appropriate message if
+# it wants to stop the commit.
+#
+# To enable this hook, rename this file to "pre-commit".
+
+if git rev-parse --verify HEAD >/dev/null 2>&1
+then
+	against=HEAD
+else
+	# Initial commit: diff against an empty tree object
+	against=$(git hash-object -t tree /dev/null)
+fi
+
+# If you want to allow non-ASCII filenames set this variable to true.
+allownonascii=$(git config --bool hooks.allownonascii)
+
+# Redirect output to stderr.
+exec 1>&2
+
+# Cross platform projects tend to avoid non-ASCII filenames; prevent
+# them from being added to the repository. We exploit the fact that the
+# printable range starts at the space character and ends with tilde.
+if [ "$allownonascii" != "true" ] &&
+	# Note that the use of brackets around a tr range is ok here, (it's
+	# even required, for portability to Solaris 10's /usr/bin/tr), since
+	# the square bracket bytes happen to fall in the designated range.
+	test $(git diff --cached --name-only --diff-filter=A -z $against |
+	  LC_ALL=C tr -d '[ -~]\0' | wc -c) != 0
+then
+	cat <<\EOF
+Error: Attempt to add a non-ASCII file name.
+
+This can cause problems if you want to work with people on other platforms.
+
+To be portable it is advisable to rename the file.
+
+If you know what you are doing you can disable this check using:
+
+  git config hooks.allownonascii true
+EOF
+	exit 1
+fi
+
+# If there are whitespace errors, print the offending file names and fail.
+exec git diff-index --check --cached $against --
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\.git\hooks\pre-push.sample
+-----------------------------------------------------
+#!/bin/sh
+
+# An example hook script to verify what is about to be pushed.  Called by "git
+# push" after it has checked the remote status, but before anything has been
+# pushed.  If this script exits with a non-zero status nothing will be pushed.
+#
+# This hook is called with the following parameters:
+#
+# $1 -- Name of the remote to which the push is being done
+# $2 -- URL to which the push is being done
+#
+# If pushing without using a named remote those arguments will be equal.
+#
+# Information about the commits which are being pushed is supplied as lines to
+# the standard input in the form:
+#
+#   <local ref> <local sha1> <remote ref> <remote sha1>
+#
+# This sample shows how to prevent push of commits where the log message starts
+# with "WIP" (work in progress).
+
+remote="$1"
+url="$2"
+
+z40=0000000000000000000000000000000000000000
+
+while read local_ref local_sha remote_ref remote_sha
+do
+	if [ "$local_sha" = $z40 ]
+	then
+		# Handle delete
+		:
+	else
+		if [ "$remote_sha" = $z40 ]
+		then
+			# New branch, examine all commits
+			range="$local_sha"
+		else
+			# Update to existing branch, examine new commits
+			range="$remote_sha..$local_sha"
+		fi
+
+		# Check for WIP commit
+		commit=`git rev-list -n 1 --grep '^WIP' "$range"`
+		if [ -n "$commit" ]
+		then
+			echo >&2 "Found WIP commit in $local_ref, not pushing"
+			exit 1
+		fi
+	fi
+done
+
+exit 0
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\.git\hooks\pre-rebase.sample
+-----------------------------------------------------
+#!/bin/sh
+#
+# Copyright (c) 2006, 2008 Junio C Hamano
+#
+# The "pre-rebase" hook is run just before "git rebase" starts doing
+# its job, and can prevent the command from running by exiting with
+# non-zero status.
+#
+# The hook is called with the following parameters:
+#
+# $1 -- the upstream the series was forked from.
+# $2 -- the branch being rebased (or empty when rebasing the current branch).
+#
+# This sample shows how to prevent topic branches that are already
+# merged to 'next' branch from getting rebased, because allowing it
+# would result in rebasing already published history.
+
+publish=next
+basebranch="$1"
+if test "$#" = 2
+then
+	topic="refs/heads/$2"
+else
+	topic=`git symbolic-ref HEAD` ||
+	exit 0 ;# we do not interrupt rebasing detached HEAD
+fi
+
+case "$topic" in
+refs/heads/??/*)
+	;;
+*)
+	exit 0 ;# we do not interrupt others.
+	;;
+esac
+
+# Now we are dealing with a topic branch being rebased
+# on top of master.  Is it OK to rebase it?
+
+# Does the topic really exist?
+git show-ref -q "$topic" || {
+	echo >&2 "No such branch $topic"
+	exit 1
+}
+
+# Is topic fully merged to master?
+not_in_master=`git rev-list --pretty=oneline ^master "$topic"`
+if test -z "$not_in_master"
+then
+	echo >&2 "$topic is fully merged to master; better remove it."
+	exit 1 ;# we could allow it, but there is no point.
+fi
+
+# Is topic ever merged to next?  If so you should not be rebasing it.
+only_next_1=`git rev-list ^master "^$topic" ${publish} | sort`
+only_next_2=`git rev-list ^master           ${publish} | sort`
+if test "$only_next_1" = "$only_next_2"
+then
+	not_in_topic=`git rev-list "^$topic" master`
+	if test -z "$not_in_topic"
+	then
+		echo >&2 "$topic is already up to date with master"
+		exit 1 ;# we could allow it, but there is no point.
+	else
+		exit 0
+	fi
+else
+	not_in_next=`git rev-list --pretty=oneline ^${publish} "$topic"`
+	/usr/bin/perl -e '
+		my $topic = $ARGV[0];
+		my $msg = "* $topic has commits already merged to public branch:\n";
+		my (%not_in_next) = map {
+			/^([0-9a-f]+) /;
+			($1 => 1);
+		} split(/\n/, $ARGV[1]);
+		for my $elem (map {
+				/^([0-9a-f]+) (.*)$/;
+				[$1 => $2];
+			} split(/\n/, $ARGV[2])) {
+			if (!exists $not_in_next{$elem->[0]}) {
+				if ($msg) {
+					print STDERR $msg;
+					undef $msg;
+				}
+				print STDERR " $elem->[1]\n";
+			}
+		}
+	' "$topic" "$not_in_next" "$not_in_master"
+	exit 1
+fi
+
+<<\DOC_END
+
+This sample hook safeguards topic branches that have been
+published from being rewound.
+
+The workflow assumed here is:
+
+ * Once a topic branch forks from "master", "master" is never
+   merged into it again (either directly or indirectly).
+
+ * Once a topic branch is fully cooked and merged into "master",
+   it is deleted.  If you need to build on top of it to correct
+   earlier mistakes, a new topic branch is created by forking at
+   the tip of the "master".  This is not strictly necessary, but
+   it makes it easier to keep your history simple.
+
+ * Whenever you need to test or publish your changes to topic
+   branches, merge them into "next" branch.
+
+The script, being an example, hardcodes the publish branch name
+to be "next", but it is trivial to make it configurable via
+$GIT_DIR/config mechanism.
+
+With this workflow, you would want to know:
+
+(1) ... if a topic branch has ever been merged to "next".  Young
+    topic branches can have stupid mistakes you would rather
+    clean up before publishing, and things that have not been
+    merged into other branches can be easily rebased without
+    affecting other people.  But once it is published, you would
+    not want to rewind it.
+
+(2) ... if a topic branch has been fully merged to "master".
+    Then you can delete it.  More importantly, you should not
+    build on top of it -- other people may already want to
+    change things related to the topic as patches against your
+    "master", so if you need further changes, it is better to
+    fork the topic (perhaps with the same name) afresh from the
+    tip of "master".
+
+Let's look at this example:
+
+		   o---o---o---o---o---o---o---o---o---o "next"
+		  /       /           /           /
+		 /   a---a---b A     /           /
+		/   /               /           /
+	       /   /   c---c---c---c B         /
+	      /   /   /             \         /
+	     /   /   /   b---b C     \       /
+	    /   /   /   /             \     /
+    ---o---o---o---o---o---o---o---o---o---o---o "master"
+
+
+A, B and C are topic branches.
+
+ * A has one fix since it was merged up to "next".
+
+ * B has finished.  It has been fully merged up to "master" and "next",
+   and is ready to be deleted.
+
+ * C has not merged to "next" at all.
+
+We would want to allow C to be rebased, refuse A, and encourage
+B to be deleted.
+
+To compute (1):
+
+	git rev-list ^master ^topic next
+	git rev-list ^master        next
+
+	if these match, topic has not merged in next at all.
+
+To compute (2):
+
+	git rev-list master..topic
+
+	if this is empty, it is fully merged to "master".
+
+DOC_END
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\.git\hooks\pre-receive.sample
+-----------------------------------------------------
+#!/bin/sh
+#
+# An example hook script to make use of push options.
+# The example simply echoes all push options that start with 'echoback='
+# and rejects all pushes when the "reject" push option is used.
+#
+# To enable this hook, rename this file to "pre-receive".
+
+if test -n "$GIT_PUSH_OPTION_COUNT"
+then
+	i=0
+	while test "$i" -lt "$GIT_PUSH_OPTION_COUNT"
+	do
+		eval "value=\$GIT_PUSH_OPTION_$i"
+		case "$value" in
+		echoback=*)
+			echo "echo from the pre-receive-hook: ${value#*=}" >&2
+			;;
+		reject)
+			exit 1
+		esac
+		i=$((i + 1))
+	done
+fi
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\.git\hooks\prepare-commit-msg.sample
+-----------------------------------------------------
+#!/bin/sh
+#
+# An example hook script to prepare the commit log message.
+# Called by "git commit" with the name of the file that has the
+# commit message, followed by the description of the commit
+# message's source.  The hook's purpose is to edit the commit
+# message file.  If the hook fails with a non-zero status,
+# the commit is aborted.
+#
+# To enable this hook, rename this file to "prepare-commit-msg".
+
+# This hook includes three examples. The first one removes the
+# "# Please enter the commit message..." help message.
+#
+# The second includes the output of "git diff --name-status -r"
+# into the message, just before the "git status" output.  It is
+# commented because it doesn't cope with --amend or with squashed
+# commits.
+#
+# The third example adds a Signed-off-by line to the message, that can
+# still be edited.  This is rarely a good idea.
+
+COMMIT_MSG_FILE=$1
+COMMIT_SOURCE=$2
+SHA1=$3
+
+/usr/bin/perl -i.bak -ne 'print unless(m/^. Please enter the commit message/..m/^#$/)' "$COMMIT_MSG_FILE"
+
+# case "$COMMIT_SOURCE,$SHA1" in
+#  ,|template,)
+#    /usr/bin/perl -i.bak -pe '
+#       print "\n" . `git diff --cached --name-status -r`
+# 	 if /^#/ && $first++ == 0' "$COMMIT_MSG_FILE" ;;
+#  *) ;;
+# esac
+
+# SOB=$(git var GIT_COMMITTER_IDENT | sed -n 's/^\(.*>\).*$/Signed-off-by: \1/p')
+# git interpret-trailers --in-place --trailer "$SOB" "$COMMIT_MSG_FILE"
+# if test -z "$COMMIT_SOURCE"
+# then
+#   /usr/bin/perl -i.bak -pe 'print "\n" if !$first_line++' "$COMMIT_MSG_FILE"
+# fi
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\.git\hooks\update.sample
+-----------------------------------------------------
+#!/bin/sh
+#
+# An example hook script to block unannotated tags from entering.
+# Called by "git receive-pack" with arguments: refname sha1-old sha1-new
+#
+# To enable this hook, rename this file to "update".
+#
+# Config
+# ------
+# hooks.allowunannotated
+#   This boolean sets whether unannotated tags will be allowed into the
+#   repository.  By default they won't be.
+# hooks.allowdeletetag
+#   This boolean sets whether deleting tags will be allowed in the
+#   repository.  By default they won't be.
+# hooks.allowmodifytag
+#   This boolean sets whether a tag may be modified after creation. By default
+#   it won't be.
+# hooks.allowdeletebranch
+#   This boolean sets whether deleting branches will be allowed in the
+#   repository.  By default they won't be.
+# hooks.denycreatebranch
+#   This boolean sets whether remotely creating branches will be denied
+#   in the repository.  By default this is allowed.
+#
+
+# --- Command line
+refname="$1"
+oldrev="$2"
+newrev="$3"
+
+# --- Safety check
+if [ -z "$GIT_DIR" ]; then
+	echo "Don't run this script from the command line." >&2
+	echo " (if you want, you could supply GIT_DIR then run" >&2
+	echo "  $0 <ref> <oldrev> <newrev>)" >&2
+	exit 1
+fi
+
+if [ -z "$refname" -o -z "$oldrev" -o -z "$newrev" ]; then
+	echo "usage: $0 <ref> <oldrev> <newrev>" >&2
+	exit 1
+fi
+
+# --- Config
+allowunannotated=$(git config --bool hooks.allowunannotated)
+allowdeletebranch=$(git config --bool hooks.allowdeletebranch)
+denycreatebranch=$(git config --bool hooks.denycreatebranch)
+allowdeletetag=$(git config --bool hooks.allowdeletetag)
+allowmodifytag=$(git config --bool hooks.allowmodifytag)
+
+# check for no description
+projectdesc=$(sed -e '1q' "$GIT_DIR/description")
+case "$projectdesc" in
+"Unnamed repository"* | "")
+	echo "*** Project description file hasn't been set" >&2
+	exit 1
+	;;
+esac
+
+# --- Check types
+# if $newrev is 0000...0000, it's a commit to delete a ref.
+zero="0000000000000000000000000000000000000000"
+if [ "$newrev" = "$zero" ]; then
+	newrev_type=delete
+else
+	newrev_type=$(git cat-file -t $newrev)
+fi
+
+case "$refname","$newrev_type" in
+	refs/tags/*,commit)
+		# un-annotated tag
+		short_refname=${refname##refs/tags/}
+		if [ "$allowunannotated" != "true" ]; then
+			echo "*** The un-annotated tag, $short_refname, is not allowed in this repository" >&2
+			echo "*** Use 'git tag [ -a | -s ]' for tags you want to propagate." >&2
+			exit 1
+		fi
+		;;
+	refs/tags/*,delete)
+		# delete tag
+		if [ "$allowdeletetag" != "true" ]; then
+			echo "*** Deleting a tag is not allowed in this repository" >&2
+			exit 1
+		fi
+		;;
+	refs/tags/*,tag)
+		# annotated tag
+		if [ "$allowmodifytag" != "true" ] && git rev-parse $refname > /dev/null 2>&1
+		then
+			echo "*** Tag '$refname' already exists." >&2
+			echo "*** Modifying a tag is not allowed in this repository." >&2
+			exit 1
+		fi
+		;;
+	refs/heads/*,commit)
+		# branch
+		if [ "$oldrev" = "$zero" -a "$denycreatebranch" = "true" ]; then
+			echo "*** Creating a branch is not allowed in this repository" >&2
+			exit 1
+		fi
+		;;
+	refs/heads/*,delete)
+		# delete branch
+		if [ "$allowdeletebranch" != "true" ]; then
+			echo "*** Deleting a branch is not allowed in this repository" >&2
+			exit 1
+		fi
+		;;
+	refs/remotes/*,commit)
+		# tracking branch
+		;;
+	refs/remotes/*,delete)
+		# delete tracking branch
+		if [ "$allowdeletebranch" != "true" ]; then
+			echo "*** Deleting a tracking branch is not allowed in this repository" >&2
+			exit 1
+		fi
+		;;
+	*)
+		# Anything else (is there anything else?)
+		echo "*** Update hook: unknown type of update to ref $refname of type $newrev_type" >&2
+		exit 1
+		;;
+esac
+
+# --- Finished
+exit 0
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\.gitignore
+-----------------------------------------------------
+bin/
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\.gitlab-ci.yml
+-----------------------------------------------------
+---
+image: docker-38027-repo.repo.devops.poalim.bank/falcon-go-base-image:0.1.0
+services:
+    - docker-38027-repo.repo.devops.poalim.bank/falcon-go-base-image:0.1.0
+
+stages:
+  - build
+  - update-version-file  
+  - update-release-manifests
+  - release
+
+
+include:
+   - local: 'gitlab-ci-release.yml'
+
+
+job_build:
+  stage: build
+  script:
+    - make docker-build IMG="${DOCKERTAG}"
+    - docker login -u "${DOCKER_USER}" -p "${DOCKER_PASSWORD}" "${DOCKER_REPO}"
+    - make docker-push IMG="${DOCKERTAG}"
+  tags:
+    - k8s
+  rules:
+   - if: $ACTION == "build"
+
+update-version-file:
+  stage: update-version-file
+  script:
+    - echo $CI_PIPELINE_ID > version.txt
+    - export GITLAB_REPO_NAME=${CI_PROJECT_URL:8}    
+    - export GITLAB_REPO_CLONE_PATH=$CI_PROJECT_DIR    
+    - bash ./bnhp-util/commit_manifests.sh "updated version.txt to ${CI_PIPELINE_ID} [ci skip] "
+    - bash ./bnhp-util/set_new_tag.sh "$CI_PIPELINE_ID"    
+  tags:
+    - k8s  
+  rules:
+   - if: $ACTION == "build"
+
+update-release-manifests:
+  stage: update-release-manifests
+  script:
+    - make edit-release-manifests IMG="${DOCKER_REPO}/${CI_PROJECT_NAME}:$(<version.txt)"
+    - echo $CI_PROJECT_DIR
+    - echo $CI_PROJECT_URL
+    - export GITLAB_REPO_NAME=${CI_PROJECT_URL:8}  
+    - export GITLAB_REPO_CLONE_PATH=$CI_PROJECT_DIR
+    - export VERSION=$(<version.txt)
+    - if [ "$CUSTOM_BUILD" != "" ]; then export VERSION=$CUSTOM_BUILD ;fi
+    - echo version to install:"$VERSION"
+    - bash ./bnhp-util/commit_manifests.sh  "update release manifests [ci skip] "
+    - bash ./bnhp-util/commit_to_env_repo.sh  "update env repo manifests from rabbit_mq_operator" "$VERSION" "$BRANCH_CLUSTER"
+  tags:
+    - k8s
+  rules:
+   - if: $ACTION == "release"    
+
+
+.scripts: &scripts |
+  # usage: download_exe output_binary_path URL [curl parameter ..]
+  download_exe() {
+    echo "* download executable: $*"
+    BINPATH="$1"
+    BINDIR=$(dirname "$1")
+    shift
+    if [[ -n $BINDIR ]]; then
+      mkdir -v -p "$BINDIR"
+    fi
+    RC=$(curl  -o "$BINPATH" -w "%{http_code}" "$@" )
+    if ! [[ $RC == 200 ]]; then
+       echo "CURL returned HTTP status $RC"
+       exit 2
+    fi
+    chmod -v 755 "$BINPATH"
+    echo "downloaded file: "
+    ls -l "$BINPATH"
+    echo "* download complete"
+  }
+
+before_script:
+  - echo "* before_script started"
+  - set -x
+  - set -e
+  - DOCKER_HOST="tcp://localhost:2375"
+  - export DOCKER_HOST
+  - if [[ -z $DOCKER_REPO ]]; then
+  -   echo "Please set up the DOCKER_REPO env. variable!"
+  -   exit 1
+  - fi
+  - DOCKERTAG="${DOCKER_REPO}/${CI_PROJECT_NAME}:${CI_PIPELINE_ID}"
+  - export PATH="${HOME}/go/bin:$PATH"
+  - echo "DOKERTAG=${DOKERTAG}"
+  - echo "PATH=$PATH"
+  - echo "HOME=$HOME"
+  - export DOCKERTAG
+  - *scripts
+  - download_exe "$HOME/go/bin/kubectl" "https://repo.devops.poalim.bank:443/artifactory/bin-38027-local/linux-amd64/kubectl/kubectl" 
+  - git checkout $CI_COMMIT_REF_NAME
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\bnhp-util\commit_manifests.sh
+-----------------------------------------------------
+#!/bin/bash
+
+set -e
+
+COMMIT_MESSAGE=$1
+
+#git remote set-url origin https://${GITLAB_USER_NAME}:${GITLAB_API_TOKEN}@${CI_PROJECT_URL:8}.git
+git remote set-url origin https://${GITLAB_USER_NAME}:${GITLAB_API_TOKEN}@${GITLAB_REPO_NAME}.git
+
+git config --global user.email ${GITLAB_USER_EMAIL}
+git config --global user.name ${GITLAB_USER_NAME}
+
+#cd $CI_PROJECT_DIR
+ls $GITLAB_REPO_CLONE_PATH
+cd $GITLAB_REPO_CLONE_PATH
+
+git add --all; git commit -am "$COMMIT_MESSAGE" --allow-empty; git push
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\bnhp-util\commit_to_env_repo.sh
+-----------------------------------------------------
+#!/bin/bash
+set -e
+
+COMMIT_MESSAGE="commit version into config/manager/manager.yaml [ci skip]  "
+VERSION_TO_COMMIT=$2
+BRANCH_CLUSTER=$3
+
+git remote set-url origin https://${GITLAB_USER_NAME}:${GITLAB_API_TOKEN}@${GITLAB_REPO_MANIFESTS}.git
+
+git config --global user.email ${GITLAB_USER_EMAIL}
+git config --global user.name ${GITLAB_USER_NAME}
+
+git fetch
+git checkout $BRANCH_CLUSTER
+
+
+
+#convert image
+sed -i 's/^\(\s*image\s*:\s*\).*/\1'"${DOCKER_REPO}"\\\/"${CI_PROJECT_NAME}":"$VERSION_TO_COMMIT"'/' config/manager/manager.yaml
+git add config/manager/manager.yaml
+
+git add --all; git commit -am "$COMMIT_MESSAGE" --allow-empty; git stash; git push
+
+
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\bnhp-util\gitlab-create-release.sh
+-----------------------------------------------------
+#!/bin/bash
+
+set -e
+
+curl --request POST --header "PRIVATE-TOKEN: $GITLAB_API_TOKEN" $CI_API_V4_URL/projects/$CI_PROJECT_ID/releases --data '{"name": "${RELEASE_TAG}", "tag_name": "${RELEASE_TAG}", "description": "Super nice release"}'
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\bnhp-util\set_new_tag.sh
+-----------------------------------------------------
+#!/bin/bash
+
+set -e
+
+
+GIT_TAG=$1
+
+git remote set-url origin https://${GITLAB_USER_NAME}:${GITLAB_API_TOKEN}@${GITLAB_REPO_NAME}.git
+
+git config --global user.email ${GITLAB_USER_EMAIL}
+git config --global user.name ${GITLAB_USER_NAME}
+
+git tag "$GIT_TAG"
+
+git push --tags
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\config\crd\bases\falcon.bnhp.com_rabbitmqexternals.yaml
+-----------------------------------------------------
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: rabbitmqexternals.falcon.bnhp.com
+spec:
+  group: falcon.bnhp.com
+  names:
+    kind: RabbitmqExternal
+    listKind: RabbitmqExternalList
+    plural: rabbitmqexternals
+    singular: rabbitmqexternal
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      description: RabbitmqExternal is the Schema for the rabbitmqexternals API
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: Spec defines the desired state of RabbitmqExternal
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
+        status:
+          description: Status defines the observed state of RabbitmqExternal
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
+    ##  at least OCP 3.11 does not like type here, uncomment for later K8S versions
+    # type: object
+  versions:
+  - name: v1
+    served: true
+    storage: true
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\config\crd\bases\falcon.bnhp.com_rabbitmqinternals.yaml
+-----------------------------------------------------
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: rabbitmqinternals.falcon.bnhp.com
+spec:
+  group: falcon.bnhp.com
+  names:
+    kind: RabbitmqInternal
+    listKind: RabbitmqInternalList
+    plural: rabbitmqinternals
+    singular: rabbitmqinternal
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      description: RabbitmqInternal is the Schema for the RabbitmqInternals API
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: Spec defines the desired state of RabbitmqInternal
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
+        status:
+          description: Status defines the observed state of RabbitmqInternal
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
+    ##  at least OCP 3.11 does not like type here, uncomment for later K8S versions
+    # type: object
+  versions:
+  - name: v1
+    served: true
+    storage: true
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\config\crd\kustomization.yaml
+-----------------------------------------------------
+# This kustomization.yaml is not intended to be run by itself,
+# since it depends on service name and namespace that are out of this kustomize package.
+# It should be run by config/default
+resources:
+- bases/falcon.bnhp.com_rabbitmqinternals.yaml
+- bases/falcon.bnhp.com_rabbitmqexternals.yaml
+# +kubebuilder:scaffold:crdkustomizeresource
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\config\default\kustomization.yaml
+-----------------------------------------------------
+# Adds namespace to all resources.
+namespace: rabbit-mq-operator
+
+# Value of this field is prepended to the
+# names of all resources, e.g. a deployment named
+# "wordpress" becomes "alices-wordpress".
+# Note that it should also match with the prefix (text before '-') of the namespace
+# field above.
+namePrefix: rabbit-mq-operator-
+
+# Labels to add to all resources and selectors.
+#commonLabels:
+#  someName: someValue
+
+bases:
+- ../crd
+- ../rbac
+- ../manager
+# [PROMETHEUS] To enable prometheus monitor, uncomment all sections with 'PROMETHEUS'.
+#- ../prometheus
+
+patchesStrategicMerge:
+  # Protect the /metrics endpoint by putting it behind auth.
+  # If you want your controller-manager to expose the /metrics
+  # endpoint w/o any authn/z, please comment the following line.
+- manager_auth_proxy_patch.yaml
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\config\default\manager_auth_proxy_patch.yaml
+-----------------------------------------------------
+# This patch inject a sidecar container which is a HTTP proxy for the
+# controller manager, it performs RBAC authorization against the Kubernetes API using SubjectAccessReviews.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: controller-manager
+  namespace: system
+spec:
+  template:
+    spec:
+      containers:
+      - name: kube-rbac-proxy
+        image: docker-base-ocp.repo.devops.poalim.bank/openshift3/ose-kube-rbac-proxy:v3.11.248
+        args:
+        - "--secure-listen-address=0.0.0.0:8443"
+        - "--upstream=http://127.0.0.1:8080/"
+        - "--logtostderr=true"
+        - "--v=10"
+        ports:
+        - containerPort: 8443
+          name: https
+      - name: manager
+        args:
+        - "--metrics-addr=127.0.0.1:8080"
+        - "--enable-leader-election"
+        - "--leader-election-id=testproject"
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\config\manager\custom-env.yaml
+-----------------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: controller-manager
+  namespace: system
+  labels:
+    control-plane: controller-manager
+spec:
+  template:
+    spec:
+      containers:
+        - name: manager
+          env:
+            - name: RabbitUser
+              value: TST10108AD01
+            - name: RabbitPassword
+              valueFrom:
+                secretKeyRef:
+                  name: rabbit-password-operator
+                  key: rabbit.password
+            - name: RabbitUrl_dbg
+              value: https://rabbitmq-dbg.devcloudapps02.poalim.bank
+            - name: RabbitUrl_dev
+              value: https://rabbitmq-dev.devcloudapps02.poalim.bank
+            - name: RabbitUrl_staging
+              value: https://rabbitmq-tst.devcloudapps02.poalim.bank
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\config\manager\kustomization.yaml
+-----------------------------------------------------
+resources:
+- manager.yaml
+
+patchesStrategicMerge:
+- custom-env.yaml
+
+secretGenerator:
+- literals:
+  - rabbit.password=Tpq2QSerkGb0Kjc
+  name: rabbit-password-operator
+  type: Opaque
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+images:
+- name: controller
+  newName: docker-40620-repo.repo.devops.poalim.bank/rabbitmq-custom-manager-operator
+  newTag: "17166"
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\config\manager\manager.yaml
+-----------------------------------------------------
+#apiVersion: v1
+#kind: Namespace
+#metadata:
+#  labels:
+#    control-plane: controller-manager
+#  name: system
+#---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: controller-manager
+  namespace: system
+  labels:
+    control-plane: controller-manager
+spec:
+  selector:
+    matchLabels:
+      control-plane: controller-manager
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        control-plane: controller-manager
+    spec:
+      containers:
+        - name: manager
+          args:
+            - "--enable-leader-election"
+            - "--leader-election-id=testproject"
+          image: controller:latest
+          env:
+            - name: AVIRAM_ENV
+              value: ${AVIRAM_ENV}                 
+      terminationGracePeriodSeconds: 10    
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\config\prometheus\kustomization.yaml
+-----------------------------------------------------
+resources:
+- monitor.yaml
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\config\prometheus\monitor.yaml
+-----------------------------------------------------
+---
+# Prometheus Monitor Service (Metrics)
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+    control-plane: controller-manager
+  name: controller-manager-metrics-monitor
+  namespace: system
+spec:
+  endpoints:
+    - path: /metrics
+      port: https
+  selector:
+    matchLabels:
+      control-plane: controller-manager
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\config\rbac\auth_proxy_client_clusterrole.yaml
+-----------------------------------------------------
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: metrics-reader
+rules:
+- nonResourceURLs: ["/metrics"]
+  verbs: ["get"]
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\config\rbac\auth_proxy_role.yaml
+-----------------------------------------------------
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: proxy-role
+rules:
+- apiGroups: ["authentication.k8s.io"]
+  resources:
+  - tokenreviews
+  verbs: ["create"]
+- apiGroups: ["authorization.k8s.io"]
+  resources:
+  - subjectaccessreviews
+  verbs: ["create"]
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\config\rbac\auth_proxy_role_binding.yaml
+-----------------------------------------------------
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: proxy-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: proxy-role
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: system
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\config\rbac\auth_proxy_service.yaml
+-----------------------------------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    control-plane: controller-manager
+  name: controller-manager-metrics-service
+  namespace: system
+spec:
+  ports:
+  - name: https
+    port: 8443
+    targetPort: https
+  selector:
+    control-plane: controller-manager
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\config\rbac\kustomization.yaml
+-----------------------------------------------------
+resources:
+- role.yaml
+- role_binding.yaml
+- leader_election_role.yaml
+- leader_election_role_binding.yaml
+# Comment the following 4 lines if you want to disable
+# the auth proxy (https://github.com/brancz/kube-rbac-proxy)
+# which protects your /metrics endpoint.
+- auth_proxy_service.yaml
+- auth_proxy_role.yaml
+- auth_proxy_role_binding.yaml
+- auth_proxy_client_clusterrole.yaml
+- rabbitmq_editor_role.yaml
+- rabbitmq_editor_role_binding.yaml
+- rabbitmq_viewer_role.yaml
+- rabbitmqexternal_editor_role.yaml
+- rabbitmqexternal_editor_role_binding.yaml
+- rabbitmqexternal_viewer_role.yaml
+- rabbit_internal_crd_role.yaml
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\config\rbac\leader_election_role.yaml
+-----------------------------------------------------
+# permissions to do leader election.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: leader-election-role
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\config\rbac\leader_election_role_binding.yaml
+-----------------------------------------------------
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: leader-election-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: leader-election-role
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: system
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\config\rbac\rabbitmqexternal_editor_role.yaml
+-----------------------------------------------------
+# permissions for end users to edit foos.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: rabbitmqexternal-editor-role
+rules:
+- apiGroups:
+  - falcon.bnhp.com
+  resources:
+  - rabbitmqexternals
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - falcon.bnhp.com
+  resources:
+  - rabbitmqexternals/status
+  verbs:
+  - get
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\config\rbac\rabbitmqexternal_editor_role_binding.yaml
+-----------------------------------------------------
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: rabbitmqexternal-editor-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: rabbitmqexternal-editor-role
+subjects:
+- kind: User
+  name: I0MN
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\config\rbac\rabbitmqexternal_viewer_role.yaml
+-----------------------------------------------------
+# permissions for end users to view foos.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: rabbitmqexternal-viewer-role
+rules:
+- apiGroups:
+  - falcon.bnhp.com
+  resources:
+  - rabbitmqexternals
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - falcon.bnhp.com
+  resources:
+  - rabbitmqexternals/status
+  verbs:
+  - get
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\config\rbac\rabbitmq_editor_role.yaml
+-----------------------------------------------------
+# permissions for end users to edit foos.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: rabbitmqinternal-editor-role
+rules:
+- apiGroups:
+  - falcon.bnhp.com
+  resources:
+  - rabbitmqinternals
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - falcon.bnhp.com
+  resources:
+  - rabbitmqinternals/status
+  verbs:
+  - get
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\config\rbac\rabbitmq_editor_role_binding.yaml
+-----------------------------------------------------
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: rabbitmqinternal-editor-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: rabbitmqinternal-editor-role
+subjects:
+- kind: User
+  name: I0MN
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\config\rbac\rabbitmq_viewer_role.yaml
+-----------------------------------------------------
+# permissions for end users to view foos.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: rabbitmqinternal-viewer-role
+rules:
+- apiGroups:
+  - falcon.bnhp.com
+  resources:
+  - rabbitmqinternals
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - falcon.bnhp.com
+  resources:
+  - rabbitmqinternals/status
+  verbs:
+  - get
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\config\rbac\rabbit_internal_crd_role.yaml
+-----------------------------------------------------
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    rbac.authorization.k8s.io/aggregate-to-admin: "true"
+  name: aggregate-rabbitmqinternal-manager
+rules:
+- apiGroups:
+  - falcon.bnhp.com
+  resources:
+  - rabbitmqinternals
+  verbs:
+  - '*' 
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\config\rbac\role.yaml
+-----------------------------------------------------
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: manager-role
+rules:
+  ##
+  ## Base operator rules
+  ##
+  - apiGroups:
+      - ""
+    resources:
+      - namespaces
+      - secrets
+      - pods
+      - pods/exec
+      - pods/log
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  - apiGroups:
+      - apps
+    resources:
+      - namespaces
+      - deployments
+      - daemonsets
+      - replicasets
+      - statefulsets
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  #
+  # Rules for falcon.bnhp.com/v1, Kind: Foo
+  #
+  - apiGroups:
+      - falcon.bnhp.com
+    resources:
+      - rabbitmqinternals
+      - rabbitmqinternals/status
+      - rabbitmqexternals
+      - rabbitmqexternals/status           
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+
+  # - apiGroups:
+  #     - falcon.bnhp.com
+  #   resources:
+  #     - rabbitmqexternal
+  #     - rabbitmqexternal/status
+  #   verbs:
+  #     - create
+  #     - delete
+  #     - get
+  #     - list
+  #     - patch
+  #     - update
+  #     - watch      
+
+# +kubebuilder:scaffold:rules
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\config\rbac\role_binding.yaml
+-----------------------------------------------------
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: manager-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: manager-role
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: system
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\config\samples\bnhp_v1_rabbitmqexternal.yaml
+-----------------------------------------------------
+apiVersion: falcon.bnhp.com/v1
+kind: RabbitmqExternal
+metadata:
+  name: rabbitmq-custom-manager-operator.bnhp.com
+spec:
+  external:
+    #dbg: 'yes'
+    destination:
+      resource: scope.productname.producers.type.testq1
+      vhost: kafka-demo-d-dev-main
+    source:
+      resource: scope.consumername.consumertype.action2
+      vhost: direct-access-demo-jenkins
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\config\samples\bnhp_v1_rabbitmqinternal.yaml
+-----------------------------------------------------
+apiVersion: falcon.bnhp.com/v1
+kind: RabbitmqInternal
+metadata:
+  name: rabbitmq-custom-manager-operator.bnhp.com
+spec:
+  #dbg: 'yes'
+  internal:
+    - exchange:
+        name: scope.consumername.consumertype.testc
+        type: direct
+      queue:
+        - name: scope.productname.producers.type.testq3
+          type: readOnly
+        - name: scope.productname.producerstype.testq4
+          type: readOnly
+    - exchange:
+        name: scope.consumername.consumertype.testd
+        type: fanout
+      queue:
+        - name: scope.productname.producerstype.testq5
+          type: readOnly
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\config\samples\kustomization.yaml
+-----------------------------------------------------
+## Append samples you want in your CSV to this file as resources ##
+resources:
+- bnhp_v1_rabbitmqinternal.yaml
+- bnhp_v1_rabbitmqexternal.yaml
+# +kubebuilder:scaffold:manifestskustomizesamples
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\config\scorecard\bases\config.yaml
+-----------------------------------------------------
+apiVersion: scorecard.operatorframework.io/v1alpha3
+kind: Configuration
+metadata:
+  name: config
+stages:
+- parallel: true
+  tests: []
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\config\scorecard\kustomization.yaml
+-----------------------------------------------------
+resources:
+- bases\config.yaml
+patchesJson6902:
+- path: patches\basic.config.yaml
+  target:
+    group: scorecard.operatorframework.io
+    version: v1alpha3
+    kind: Configuration
+    name: config
+- path: patches\olm.config.yaml
+  target:
+    group: scorecard.operatorframework.io
+    version: v1alpha3
+    kind: Configuration
+    name: config
+# +kubebuilder:scaffold:patchesJson6902
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\config\scorecard\patches\basic.config.yaml
+-----------------------------------------------------
+- op: add
+  path: /stages/0/tests/-
+  value:
+    entrypoint:
+    - scorecard-test
+    - basic-check-spec
+    image: quay.io/operator-framework/scorecard-test:master
+    labels:
+      suite: basic
+      test: basic-check-spec-test
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\config\scorecard\patches\olm.config.yaml
+-----------------------------------------------------
+- op: add
+  path: /stages/0/tests/-
+  value:
+    entrypoint:
+    - scorecard-test
+    - olm-bundle-validation
+    image: quay.io/operator-framework/scorecard-test:master
+    labels:
+      suite: olm
+      test: olm-bundle-validation-test
+- op: add
+  path: /stages/0/tests/-
+  value:
+    entrypoint:
+    - scorecard-test
+    - olm-crds-have-validation
+    image: quay.io/operator-framework/scorecard-test:master
+    labels:
+      suite: olm
+      test: olm-crds-have-validation-test
+- op: add
+  path: /stages/0/tests/-
+  value:
+    entrypoint:
+    - scorecard-test
+    - olm-crds-have-resources
+    image: quay.io/operator-framework/scorecard-test:master
+    labels:
+      suite: olm
+      test: olm-crds-have-resources-test
+- op: add
+  path: /stages/0/tests/-
+  value:
+    entrypoint:
+    - scorecard-test
+    - olm-spec-descriptors
+    image: quay.io/operator-framework/scorecard-test:master
+    labels:
+      suite: olm
+      test: olm-spec-descriptors-test
+- op: add
+  path: /stages/0/tests/-
+  value:
+    entrypoint:
+    - scorecard-test
+    - olm-status-descriptors
+    image: quay.io/operator-framework/scorecard-test:master
+    labels:
+      suite: olm
+      test: olm-status-descriptors-test
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\config\testing\debug_logs_patch.yaml
+-----------------------------------------------------
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: controller-manager
+  namespace: system
+spec:
+  template:
+    spec:
+      containers:
+        - name: manager
+          env:
+            - name: ANSIBLE_DEBUG_LOGS
+              value: "TRUE"
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\config\testing\kustomization.yaml
+-----------------------------------------------------
+# Adds namespace to all resources.
+namespace: osdk-test
+
+namePrefix: osdk-
+
+# Labels to add to all resources and selectors.
+#commonLabels:
+#  someName: someValue
+
+patchesStrategicMerge:
+- manager_image.yaml
+- debug_logs_patch.yaml
+- ../default/manager_auth_proxy_patch.yaml
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- ../crd
+- ../rbac
+- ../manager
+images:
+- name: testing
+  newName: testing-operator
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\config\testing\manager_image.yaml
+-----------------------------------------------------
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: controller-manager
+  namespace: system
+spec:
+  template:
+    spec:
+      containers:
+        - name: manager
+          image: testing
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\config\testing\pull_policy\Always.yaml
+-----------------------------------------------------
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: controller-manager
+  namespace: system
+spec:
+  template:
+    spec:
+      containers:
+        - name: manager
+          imagePullPolicy: Always
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\config\testing\pull_policy\IfNotPresent.yaml
+-----------------------------------------------------
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: controller-manager
+  namespace: system
+spec:
+  template:
+    spec:
+      containers:
+        - name: manager
+          imagePullPolicy: IfNotPresent
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\config\testing\pull_policy\Never.yaml
+-----------------------------------------------------
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: controller-manager
+  namespace: system
+spec:
+  template:
+    spec:
+      containers:
+        - name: manager
+          imagePullPolicy: Never
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\Dockerfile
+-----------------------------------------------------
+FROM docker-38027-repo.repo.devops.poalim.bank/operator-framework/ansible-operator:v1.0.0-bnhp.2
+
+COPY watches.yaml ${HOME}/watches.yaml
+COPY roles/ ${HOME}/roles/
+COPY playbooks/ ${HOME}/playbooks/
+
+USER root
+
+RUN yum -y install https://chefserver/repos/yum-repos/7Server/Packages/g/git-1.8.3.1-20.el7.x86_64.rpm
+
+USER ansible-operator
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\gitlab-ci-release.yml
+-----------------------------------------------------
+release:
+  stage: release
+  script:
+  # the tag should be in the format of v1.5.2
+    - TARGET_VERSION=$(CI_COMMIT_TAG:1)
+  # the TARGET_BRANCH should be in the format of release-1.5.2    
+    - TARGET_BRANCH=release-${TARGET_VERSION}  
+    - RELEASE_TAG=${CI_COMMIT_TAG} 
+    - echo "retag the image with the tag name"
+    - docker pull ${DOCKER_REPO}/${CI_PROJECT_NAME}:${CI_COMMIT_SHORT_SHA}
+    - docker tag ${DOCKER_REPO}/${CI_PROJECT_NAME}:${TARGET_VERSION}
+    - echo "retag the image with the tag latest"    
+    - docker tag ${DOCKER_REPO}/${CI_PROJECT_NAME}:latest
+    - echo "docker push latest and release tags"
+    - docker push ${DOCKER_REPO}/${CI_PROJECT_NAME}:latest
+    - docker push ${DOCKER_REPO}/${CI_PROJECT_NAME}:${TARGET_VERSION}    
+    - git checkout $TARGET_BRANCH    
+    - make edit-test-manifests IMG="${TARGET_VERSION}"
+    - make edit-release-manifests IMG="${TARGET_VERSION}"    
+    - ./bnhp-util/commit_manifests.sh "[skip ci] release - update image tags"
+    - echo "create gitlab release with the tag name"
+    - ./bnhp-util/gitlab-create-release.sh
+    - echo "create release notes for the tag"
+  tags:
+    - k8s
+  rules:
+    - if: $CI_COMMIT_TAG
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\molecule\default\converge.yml
+-----------------------------------------------------
+---
+- name: Converge
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  collections:
+    - community.kubernetes
+
+  tasks:
+    - name: Create Namespace
+      k8s:
+        api_version: v1
+        kind: Namespace
+        name: '{{ namespace }}'
+
+    - import_tasks: kustomize.yml
+      vars:
+        state: present
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\molecule\default\create.yml
+-----------------------------------------------------
+---
+- name: Create
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks: []
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\molecule\default\destroy.yml
+-----------------------------------------------------
+---
+- name: Destroy
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  collections:
+    - community.kubernetes
+
+  tasks:
+    - import_tasks: kustomize.yml
+      vars:
+        state: absent
+
+    - name: Destroy Namespace
+      k8s:
+        api_version: v1
+        kind: Namespace
+        name: '{{ namespace }}'
+        state: absent
+
+    - name: Unset pull policy
+      command: '{{ kustomize }} edit remove patch pull_policy/{{ operator_pull_policy }}.yaml'
+      args:
+        chdir: '{{ config_dir }}/testing'
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\molecule\default\kustomize.yml
+-----------------------------------------------------
+---
+- name: Build kustomize testing overlay
+  # load_restrictor must be set to none so we can load patch files from the default overlay
+  command: '{{ kustomize }} build  --load_restrictor none .'
+  args:
+    chdir: '{{ config_dir }}/testing'
+  register: resources
+  changed_when: false
+
+- name: Set resources to {{ state }}
+  k8s:
+    definition: '{{ item }}'
+    state: '{{ state }}'
+    wait: yes
+  loop: '{{ resources.stdout | from_yaml_all | list }}'
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\molecule\default\molecule.yml
+-----------------------------------------------------
+---
+dependency:
+  name: galaxy
+driver:
+  name: delegated
+lint: |
+  set -e
+  yamllint -d "{extends: relaxed, rules: {line-length: {max: 120}}}" .
+platforms:
+  - name: cluster
+    groups:
+      - k8s
+provisioner:
+  name: ansible
+  lint: |
+    set -e
+    ansible-lint
+  inventory:
+    group_vars:
+      all:
+        namespace: ${TEST_OPERATOR_NAMESPACE:-osdk-test}
+    host_vars:
+      localhost:
+        ansible_python_interpreter: '{{ ansible_playbook_python }}'
+        config_dir: ${MOLECULE_PROJECT_DIRECTORY}/config
+        samples_dir: ${MOLECULE_PROJECT_DIRECTORY}/config/samples
+        operator_image: ${OPERATOR_IMAGE:-""}
+        operator_pull_policy: ${OPERATOR_PULL_POLICY:-"Always"}
+        kustomize: ${KUSTOMIZE_PATH:-kustomize}
+  env:
+    K8S_AUTH_KUBECONFIG: ${KUBECONFIG:-"~/.kube/config"}
+verifier:
+  name: ansible
+  lint: |
+    set -e
+    ansible-lint
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\molecule\default\prepare.yml
+-----------------------------------------------------
+---
+- name: Prepare
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  tasks:
+    - name: Ensure operator image is set
+      fail:
+        msg: |
+          You must specify the OPERATOR_IMAGE environment variable in order to run the
+          'default' scenario
+      when: not operator_image
+
+    - name: Set testing image
+      command: '{{ kustomize }} edit set image testing={{ operator_image }}'
+      args:
+        chdir: '{{ config_dir }}/testing'
+
+    - name: Set pull policy
+      command: '{{ kustomize }} edit add patch pull_policy/{{ operator_pull_policy }}.yaml'
+      args:
+        chdir: '{{ config_dir }}/testing'
+
+    - name: Set testing namespace
+      command: '{{ kustomize }} edit set namespace {{ namespace }}'
+      args:
+        chdir: '{{ config_dir }}/testing'
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\molecule\default\tasks\foo_test.yml
+-----------------------------------------------------
+---
+- name: Create the falcon.bnhp.com/v1
+  k8s:
+    state: present
+    namespace: '{{ namespace }}'
+    definition: "{{ lookup('template', '/'.join([samples_dir, cr_file])) | from_yaml }}"
+    wait: yes
+    wait_timeout: 300
+    wait_condition:
+      type: Running
+      reason: Successful
+      status: "True"
+  vars:
+    cr_file: 'bnhp_v1_foo.yaml'
+
+- name: Add assertions here
+  assert:
+    that: false
+    fail_msg: FIXME Add real assertions for your operator
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\molecule\default\verify.yml
+-----------------------------------------------------
+---
+- name: Verify
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  collections:
+    - community.kubernetes
+
+  vars:
+    ctrl_label: control-plane=controller-manager
+
+  tasks:
+    - block:
+        - name: Import all test files from tasks/
+          include_tasks: '{{ item }}'
+          with_fileglob:
+            - tasks/*_test.yml
+      rescue:
+        - name: Retrieve relevant resources
+          k8s_info:
+            api_version: '{{ item.api_version }}'
+            kind: '{{ item.kind }}'
+            namespace: '{{ namespace }}'
+          loop:
+            - api_version: v1
+              kind: Pod
+            - api_version: apps/v1
+              kind: Deployment
+            - api_version: v1
+              kind: Secret
+            - api_version: v1
+              kind: ConfigMap
+          register: debug_resources
+
+        - name: Retrieve Pod logs
+          k8s_log:
+            name: '{{ item.metadata.name }}'
+            namespace: '{{ namespace }}'
+            container: manager
+          loop: "{{ q('k8s', api_version='v1', kind='Pod', namespace=namespace, label_selector=ctrl_label) }}"
+          register: debug_logs
+
+        - name: Output gathered resources
+          debug:
+            var: debug_resources
+
+        - name: Output gathered logs
+          debug:
+            var: item.log_lines
+          loop: '{{ debug_logs.results }}'
+
+        - name: Re-emit failure
+          vars:
+            failed_task:
+              result: '{{ ansible_failed_result }}'
+          fail:
+            msg: '{{ failed_task }}'
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\molecule\kind\converge.yml
+-----------------------------------------------------
+---
+- name: Converge
+  hosts: localhost
+  connection: local
+  gather_facts: no
+
+  tasks:
+    - name: Build operator image
+      docker_image:
+        build:
+          path: '{{ project_dir }}'
+          pull: no
+        name: '{{ operator_image }}'
+        tag: latest
+        push: no
+        source: build
+        force_source: yes
+
+    - name: Load image into kind cluster
+      command: kind load docker-image --name osdk-test '{{ operator_image }}'
+      register: result
+      changed_when: '"not yet present" in result.stdout'
+
+- import_playbook: ../default/converge.yml
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\molecule\kind\create.yml
+-----------------------------------------------------
+---
+- name: Create
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Create test kind cluster
+      command: kind create cluster --name osdk-test --kubeconfig {{ kubeconfig }}
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\molecule\kind\destroy.yml
+-----------------------------------------------------
+---
+- name: Destroy
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  collections:
+    - community.kubernetes
+
+  tasks:
+    - name: Destroy test kind cluster
+      command: kind delete cluster --name osdk-test --kubeconfig {{ kubeconfig }}
+
+    - name: Unset pull policy
+      command: '{{ kustomize }} edit remove patch pull_policy/{{ operator_pull_policy }}.yaml'
+      args:
+        chdir: '{{ config_dir }}/testing'
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\molecule\kind\molecule.yml
+-----------------------------------------------------
+---
+dependency:
+  name: galaxy
+driver:
+  name: delegated
+lint: |
+  set -e
+  yamllint -d "{extends: relaxed, rules: {line-length: {max: 120}}}" .
+platforms:
+  - name: cluster
+    groups:
+      - k8s
+provisioner:
+  name: ansible
+  playbooks:
+    prepare: ../default/prepare.yml
+    verify: ../default/verify.yml
+  lint: |
+    set -e
+    ansible-lint
+  inventory:
+    group_vars:
+      all:
+        namespace: ${TEST_OPERATOR_NAMESPACE:-osdk-test}
+    host_vars:
+      localhost:
+        ansible_python_interpreter: '{{ ansible_playbook_python }}'
+        config_dir: ${MOLECULE_PROJECT_DIRECTORY}/config
+        samples_dir: ${MOLECULE_PROJECT_DIRECTORY}/config/samples
+        project_dir: ${MOLECULE_PROJECT_DIRECTORY}
+        operator_image: testing-operator
+        operator_pull_policy: "Never"
+        kubeconfig: "{{ lookup('env', 'KUBECONFIG') }}"
+        kustomize: ${KUSTOMIZE_PATH:-kustomize}
+  env:
+    K8S_AUTH_KUBECONFIG: ${MOLECULE_EPHEMERAL_DIRECTORY}/kubeconfig
+    KUBECONFIG: ${MOLECULE_EPHEMERAL_DIRECTORY}/kubeconfig
+verifier:
+  name: ansible
+  lint: |
+    set -e
+    ansible-lint
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\playbooks\RabbitMqExternal.yml
+-----------------------------------------------------
+---
+- name: RabbitMq - createe elements for external case
+  hosts: localhost
+  
+  collections:
+    - operator_sdk.util
+  
+  vars:
+    user: "{{lookup('env','RabbitUser')}}"
+    password: "{{lookup('env','RabbitPassword')}}"
+    namespace: "{{ansible_operator_meta.namespace}}"
+    #ocpServerPath: "{{lookup('env','OcpServerPath')}}"
+    #ocpAccessToken: "{{lookup('env','OcpAccessToken')}}"
+
+
+  tasks:
+  - debug: msg="namespace:{{namespace}}"
+  - debug: msg="input from CRD:{{external}}"
+
+  - name: init var
+    set_fact:
+      producer_vhost: "{{external.source.vhost}}"
+      producer_exchnge: "{{external.source.resource}}"
+      cunsumer_vhost: "{{external.destination.vhost}}"
+      cunsumer_queue: "{{external.destination.resource}}"
+  
+
+  - debug: msg="producer_vhost:{{producer_vhost}}, producer_exchnge:{{producer_exchnge}}, cunsumer_vhost:{{cunsumer_vhost}}, cunsumer_queue:{{cunsumer_queue}}"
+
+
+# #exchange validation - 1
+  - name: Exchange validation - check valide patern
+    set_fact: 
+      producerExchnge_ValidePatern: "{{producer_exchnge}}"
+    when: producer_exchnge is not regex("^[0-9a-z.]+$")
+
+
+  - name: check if there is an error on "producerExchnge_ValidePatern"
+    block:
+    - name: check if there is an error on "producerExchnge_ValidePatern"
+      k8s_status:
+        api_version: falcon.bnhp.com/v1
+        kind: RabbitmqExternal
+        name: "{{ansible_operator_meta.name}}"
+        namespace: "{{namespace}}"
+        status:
+          operator_message: "Invalid input(valide patern) - source.resource"
+          operator_status_code: 51  
+    - name: end with failure
+      fail: 
+        msg: "The source.resource isn't in the correct patern (exept only 0-9,a-z), Please check the value:{{producerExchnge_ValidePatern}}"
+    when: producerExchnge_ValidePatern is defined
+
+
+  - name: Exchange validation - dot counter
+    set_fact: 
+      producerExchnge_DotCounter: "{{producer_exchnge}}"
+    when: (producer_exchnge | regex_findall('[.]') | length) >3
+
+    
+  - name: check if there is an error on "producerExchnge_DotCounter"
+    block:
+    - name: check if there is an error on "producerExchnge_DotCounter"
+      k8s_status:
+        api_version: falcon.bnhp.com/v1
+        kind: RabbitmqExternal
+        name: "{{ansible_operator_meta.name}}"
+        namespace: "{{namespace}}"
+        status:
+          operator_message: "Invalid input(doc counter) - source.resource"
+          operator_status_code: 52   
+    - name: end with failure
+      fail: 
+        msg: "The source.resource isn't in the correct patern, number of dot('.') is:{{ producerExchnge_DotCounter | regex_findall('[.]')| length }}, must be under 3. Please check the value of:{{producerExchnge_DotCounter}}"
+    when: producerExchnge_DotCounter is defined
+
+#queue validation
+  - name: Queue validation - check valide patern
+    set_fact: 
+      cunsumerQueue_ValidePatern: "{{cunsumer_queue}}"
+    when: cunsumer_queue is not regex("^[0-9a-z.]+$")
+
+  
+  - name: check if there is an error on "cunsumerQueue_ValidePatern"
+    block:
+    - name: check if there is an error on "cunsumerQueue_ValidePatern"
+      k8s_status:
+        api_version: falcon.bnhp.com/v1
+        kind: RabbitmqExternal
+        name: "{{ansible_operator_meta.name}}"
+        namespace: "{{namespace}}"
+        status:
+          operator_message: "Invalid input(check valide) - destination.resource"
+          operator_status_code: 53  
+    - name: end with failure
+      fail: 
+        msg: "The destination.resource isn't in the correct patern (exept only 0-9,a-z), Please check the value:{{cunsumerQueue_ValidePatern}}"
+    when: cunsumerQueue_ValidePatern is defined 
+
+  - name: Queue validation - dot counter
+    set_fact: 
+      cunsumerQueue_DotCounter: "{{cunsumer_queue}}"
+    when: (cunsumer_queue | regex_findall('[.]') | length) > 5
+
+    
+  - name: check if there is an error on "cunsumerQueue_DotCounter"
+    block:
+    - name: check if there is an error on "cunsumerQueue_DotCounter"
+      k8s_status:
+        api_version: falcon.bnhp.com/v1
+        kind: RabbitmqExternal
+        name: "{{ansible_operator_meta.name}}"
+        namespace: "{{namespace}}"
+        status:
+          operator_message: "Invalid input(doc counter) - destination.resource"
+          operator_status_code: 54  
+    - name: end with failure
+      fail: 
+        msg: "The destination.resource isn't in the correct patern, number of dot('.') is:{{ cunsumerQueue_DotCounter | regex_findall('[.]')| length }}, must be under 5. Please check the value of:{{cunsumerQueue_DotCounter}}"
+    when: cunsumerQueue_DotCounter is defined
+    
+  - name: Get env of producer_vhost from k8s api
+    k8s_info:
+      api_version: v1
+      kind: Namespace
+      name: "{{producer_vhost}}"
+      namespace: "{{producer_vhost}}"
+    register: json_response_producer
+
+  - name: check if "producer_vhost" is existing on OCP
+    block:
+    - name: check if "producer_vhost" is existing on OCP
+      k8s_status:
+        api_version: falcon.bnhp.com/v1
+        kind: RabbitmqExternal
+        name: "{{ansible_operator_meta.name}}"
+        namespace: "{{namespace}}"
+        status:
+          operator_message: "The source.vhost isn't existing on OCP"
+          operator_status_code: 55
+    - name: end with failure
+      fail: 
+        msg: "The source.vhost:{{producer_vhost}} isn't existing on OCP"
+    when: json_response_producer.resources[0] is undefined
+
+  - name: save environment to param for - producer_vhost
+    set_fact:
+      producer_vhost_env: "{{json_response_producer.resources[0].metadata.labels['bnhp.cicd/service-domain-env-type'] | default('dev') }}"
+
+  - name: Get env of cunsumer_vhost from k8s api
+    k8s_info:
+      api_version: v1
+      kind: Namespace
+      name: "{{cunsumer_vhost}}"
+      namespace: "{{cunsumer_vhost}}"
+    register: json_response_cunsumer
+  #- debug: msg="input from json_response_cunsumer:{{json_response_cunsumer}}"  #DELETE   
+
+  - name: check if "cunsumer_vhost" is existing on OCP
+    block:
+    - name: check if "cunsumer_vhost" is existing on OCP
+      k8s_status:
+        api_version: falcon.bnhp.com/v1
+        kind: RabbitmqExternal
+        name: "{{ansible_operator_meta.name}}"
+        namespace: "{{namespace}}"
+        status:
+          operator_message: "The destination.vhost isn't existing on OCP"
+          operator_status_code: 56
+    - name: end with failure
+      fail: 
+        msg: "The destination.vhost:{{cunsumer_vhost}} isn't existing on OCP"
+    when: json_response_cunsumer.resources[0] is undefined
+
+  - name: save environment to param for - json_response_cunsumer
+    set_fact:
+      cunsumer_vhost_env: "{{json_response_cunsumer.resources[0].metadata.labels['bnhp.cicd/service-domain-env-type'] | default('dev') }}"
+
+  - name: check if the producer & cunsumer in same domain
+    set_fact: 
+      bool_domain: true
+    when: cunsumer_vhost_env==producer_vhost_env    
+
+  - name: check if the producer & cunsumer in same domain
+    block:
+    - name: check if the producer & cunsumer in same domain
+      k8s_status:
+        api_version: falcon.bnhp.com/v1
+        kind: RabbitmqExternal
+        name: "{{ansible_operator_meta.name}}"
+        namespace: "{{namespace}}"
+        status:
+          operator_message: "The producer & cunsumer NS are not on same env on OCP"
+          operator_status_code: 57
+    - name: end with failure
+      fail: 
+        msg: "The producer & cunsumer NS are not on same env on OCP"
+    when: bool_domain is undefined
+
+  - debug: msg="cunsumer_vhost_env:{{cunsumer_vhost_env}} , cunsumer_vhost_env:{{producer_vhost_env}}, bool_domain:{{bool_domain}}"
+
+  - name: save environment to param
+    set_fact:
+      rabbit_env: "{{cunsumer_vhost_env}}"
+
+# set rabbitServerPath env
+  - name: set to "rabbitServerPath" for dev
+    set_fact: rabbitServerPath={{lookup('env','RabbitUrl_dev')}}
+    when: (rabbit_env == "dev")
+
+  - name: set to "rabbitServerPath" for staging
+    set_fact: rabbitServerPath={{lookup('env','RabbitUrl_staging')}}
+    when: (rabbit_env == "staging") 
+
+  - name: set to "rabbitServerPath" for preProd
+    set_fact: rabbitServerPath={{lookup('env','RabbitUrl_preProd')}}
+    when: (rabbit_env == "preProd") 
+
+  - name: set to "rabbitServerPath" for prod
+    set_fact: rabbitServerPath={{lookup('env','RabbitUrl_prod')}}
+    when: (rabbit_env == "prod") 
+
+  - name: check for DBG env
+    set_fact: 
+      rabbit_env: dbg
+      rabbitServerPath: "{{lookup('env','RabbitUrl_dbg')}}"
+    when: external.dbg is defined
+
+  - debug: msg="rabbit_env:{{rabbit_env}} , rabbitServerPath:{{rabbitServerPath}}"
+
+
+#===
+  - name: set producerVhostTemp
+    set_fact:
+      producerVhostTemp: "{{producer_vhost}}"
+  - name: convert producerVhostTemp to pattern
+    set_fact:
+      producerVhostAfter: "{{producerVhostTemp|title | replace('-','')}}"
+
+  - debug: msg="producerVhostAfter:{{producerVhostAfter}} , producerVhostTemp:{{producerVhostTemp}}" 
+
+#check "producerVhostAfter" exist
+  - name: check "producerVhostAfter" exist
+    uri:
+      method: GET
+      url: "{{rabbitServerPath}}/api/vhosts/{{producerVhostAfter}}"
+      user: "{{user}}"
+      password: "{{password}}"
+      force_basic_auth: yes
+      return_content: yes
+      headers:
+        Accept: application/json
+      #status_code: 200
+      body_format: json
+    ignore_errors: True
+    register: rc_producerVhost
+
+  - name: check "producerVhostAfter" exist - check returnCode
+    block:
+    - name: check "producerVhostAfter" exist - check returnCode
+      k8s_status:
+        api_version: falcon.bnhp.com/v1
+        kind: RabbitmqExternal
+        name: "{{ansible_operator_meta.name}}"
+        namespace: "{{namespace}}"
+        status:
+          operator_message: "The source.vhost:{{producer_vhost}} isn't existing on rabbitMq env:{{rabbit_env}}"
+          operator_status_code: 58
+    - name: end with failure
+      fail: 
+        msg: "The source.vhost:{{producer_vhost}} isn't existing on rabbitMq env:{{rabbit_env}}"
+    when: rc_producerVhost.status==404
+
+
+#check "producer_exchnge" exist 
+  - name: check "producer_exchnge" exist
+    uri:
+      method: GET
+      url: "{{rabbitServerPath}}/api/exchanges/{{producerVhostAfter}}/{{producer_exchnge}}"
+      user: "{{user}}"
+      password: "{{password}}"
+      force_basic_auth: yes
+      return_content: yes
+      headers:
+        Accept: application/json
+      #status_code: 200
+      body_format: json
+    ignore_errors: True
+    register: rc_producerExchnge
+
+  - name: check "producer_exchnge" exist - check returnCode
+    block:
+    - name: check "producer_exchnge" exist - check returnCode
+      k8s_status:
+        api_version: falcon.bnhp.com/v1
+        kind: RabbitmqExternal
+        name: "{{ansible_operator_meta.name}}"
+        namespace: "{{namespace}}"
+        status:
+          operator_message: "The source.resource:{{producer_exchnge}} isn't existing on rabbitMq env:{{rabbit_env}}"
+          operator_status_code: 59
+    - name: end with failure
+      fail: 
+        msg: "The source.resource:{{producer_exchnge}} isn't existing on rabbitMq env:{{rabbit_env}}"
+    when: rc_producerExchnge.status==404
+
+  - name: set cunsumerVhostTemp
+    set_fact:
+      cunsumerVhostTemp: "{{cunsumer_vhost}}"
+  - name: convert cunsumerVhostTemp to pattern
+    set_fact:
+      cunsumerVhostAfter: "{{cunsumerVhostTemp|title | replace('-','')}}"
+
+  - debug: msg="cunsumerVhostAfter:{{cunsumerVhostAfter}} , cunsumerVhostTemp:{{cunsumerVhostTemp}}" 
+
+  - name: init var2
+    set_fact:
+      cunsumer_exchnge: "_{{producerVhostAfter}}.{{producer_exchnge}}"
+      producer_queue: "_{{cunsumerVhostAfter}}.{{cunsumer_queue}}"
+
+  - debug: msg="cunsumer_exchnge:{{cunsumer_exchnge}} , producer_queue:{{producer_queue}}" 
+
+
+#check "cunsumerVhostAfter" exist 
+  - name: check "cunsumerVhostAfter" exist
+    uri:
+      method: GET
+      url: "{{rabbitServerPath}}/api/vhosts/{{cunsumerVhostAfter}}"
+      user: "{{user}}"
+      password: "{{password}}"
+      force_basic_auth: yes
+      return_content: yes
+      headers:
+        Accept: application/json
+      #status_code: 200
+      body_format: json
+    ignore_errors: True
+    register: rc_cunsumerVhost
+
+  - name: check "cunsumerVhostAfter" exist on RabbitMq - check returnCode
+    block:
+    - name: check "cunsumerVhostAfter" exist on RabbitMq - check returnCode
+      k8s_status:
+        api_version: falcon.bnhp.com/v1
+        kind: RabbitmqExternal
+        name: "{{ansible_operator_meta.name}}"
+        namespace: "{{namespace}}"
+        status:
+          operator_message: "The destination.vhost:{{cunsumer_vhost}} isn't existing on rabbitMq env:{{rabbit_env}}"
+          operator_status_code: 510
+    - name: end with failure
+      fail: 
+        msg: "The destination.vhost:{{cunsumer_vhost}} isn't existing on rabbitMq env:{{rabbit_env}}"
+    when: rc_cunsumerVhost.status==404
+
+#check "cunsumer_queue" exist
+  - name: check "cunsumer_queue" exist
+    uri:
+      method: GET
+      url: "{{rabbitServerPath}}/api/queues/{{cunsumerVhostAfter}}/{{cunsumer_queue}}"
+      user: "{{user}}"
+      password: "{{password}}"
+      force_basic_auth: yes
+      return_content: yes
+      headers:
+        Accept: application/json
+      #status_code: 200
+      body_format: json
+    ignore_errors: True
+    register: rc_cunsumerQueue
+
+  - name: check "cunsumer_queue" exist on RabbitMq - check returnCode
+    block:
+    - name: check "cunsumer_queue" exist on RabbitMq - check returnCode
+      k8s_status:
+        api_version: falcon.bnhp.com/v1
+        kind: RabbitmqExternal
+        name: "{{ansible_operator_meta.name}}"
+        namespace: "{{namespace}}"
+        status:
+          operator_message: "The destination.resource:{{cunsumer_queue}} isn't existing on rabbitMq env:{{rabbit_env}}"
+          operator_status_code: 511
+    - name: end with failure
+      fail: 
+        msg: "The destination.resource:{{cunsumer_queue}} isn't existing on rabbitMq env:{{rabbit_env}}"
+    when: rc_cunsumerQueue.status==404
+
+  - name: when producer call to CRD
+    set_fact: 
+      shoval_name: "{{cunsumerVhostAfter}}.{{cunsumer_queue}}"
+      vhost_how_call: "{{producerVhostAfter}}"
+    when: producer_vhost=="{{namespace}}"
+
+  - name: when cunsumer call to CRD
+    set_fact: 
+      shoval_name: "{{producerVhostAfter}}.{{producer_exchnge}}"
+      vhost_how_call: "{{cunsumerVhostAfter}}"
+    when: cunsumer_vhost=="{{namespace}}"  
+
+  - debug: msg="shoval_name:{{shoval_name}}, vhost_how_call={{vhost_how_call}}"
+
+  - name: create shoval
+    uri:
+      method: PUT
+      url: "{{rabbitServerPath}}/api/parameters/shovel/{{vhost_how_call}}/{{shoval_name}}"
+      user: "{{user}}"
+      password: "{{password}}"
+      body: {"component": "shovel","vhost":"{{vhost_how_call}}","name":"{{shoval_name}}","value":{"src-uri":"amqp:///{{producerVhostAfter}}","dest-uri":"amqp:///{{cunsumerVhostAfter}}","ack-mode":"on-confirm","src-protocol":"amqp091","dest-protocol":"amqp091","src-queue":"{{producer_queue}}","src-delete-after":"never","dest-exchange":"{{cunsumer_exchnge}}","dest-add-forward-headers":false}}
+      force_basic_auth: yes
+      return_content: yes
+      headers:
+        Accept: application/json
+      status_code: 201 , 204
+      body_format: json 
+
+  - name: create Destination Exchange 
+    uri:
+      method: PUT
+      url: "{{rabbitServerPath}}/api/exchanges/{{cunsumerVhostAfter}}/{{cunsumer_exchnge}}"
+      user: "{{user}}"
+      password: "{{password}}"
+      body: {"vhost":"{{cunsumerVhostAfter}}","name":"{{cunsumer_exchnge}}","type":"fanout","durable":"true","auto_delete":"false","internal":"false","arguments":{}}
+      force_basic_auth: yes
+      return_content: yes
+      headers:
+        Accept: application/json
+      status_code: 201 , 204
+      body_format: json 
+
+  - name: create Destination Binding
+    uri:
+      method: POST
+      url: "{{rabbitServerPath}}/api/bindings/{{cunsumerVhostAfter}}/e/{{cunsumer_exchnge}}/q/{{cunsumer_queue}}"
+      user: "{{user}}"
+      password: "{{password}}"
+      body: {"vhost":"{{cunsumerVhostAfter}}","source":"{{cunsumer_exchnge}}","destination_type":"q","destination":"{{cunsumer_queue}}","routing_key":"","arguments": {}}
+      force_basic_auth: yes
+      return_content: yes
+      headers:
+        Accept: application/json
+      status_code: 201, 204
+      body_format: json
+
+  - name: create Source Binding
+    uri:
+      method: POST
+      url: "{{rabbitServerPath}}/api/bindings/{{producerVhostAfter}}/e/{{producer_exchnge}}/q/{{producer_queue}}"
+      user: "{{user}}"
+      password: "{{password}}"
+      body: {"vhost": "{{producerVhostAfter}}","source": "{{producer_exchnge}}","destination_type": "q","destination": "{{producer_queue}}","routing_key":"","arguments": {}}
+      force_basic_auth: yes
+      return_content: yes
+      headers:
+        Accept: application/json
+      status_code: 201, 204
+      body_format: json
+      
+  - name: update_status
+    k8s_status:
+      api_version: falcon.bnhp.com/v1
+      kind: RabbitmqExternal
+      name: "{{ansible_operator_meta.name}}"
+      namespace: "{{namespace}}"
+      status:
+        operator_status_code: 20
+        operator_message: "Successfully create an object on RabbitMq"
+
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\playbooks\RabbitMqInternal.yml
+-----------------------------------------------------
+---
+- name: RabbitMq - createe element
+  hosts: localhost
+  
+  collections:
+    - operator_sdk.util
+  
+  vars:
+    user: "{{lookup('env','RabbitUser')}}"
+    password: "{{lookup('env','RabbitPassword')}}"
+    namespace: "{{ansible_operator_meta.namespace}}"
+    jobTemp: "{{lookup('env', 'AWX_ISOLATED_DATA_DIR') }}"
+    job: "{{jobTemp.split('/')[-1]}}"
+    kind: "RabbitmqInternal"
+
+  tasks:
+  - name: Get env of NS from k8s api
+    k8s_info:
+      api_version: v1
+      kind: Namespace
+      name: "{{namespace}}"
+      namespace: "{{namespace}}"
+    register: json_response
+  #- debug: msg="input from json_response:{{json_response}}"  
+  #- debug: msg='{"job":{{job}},"kind":"{{kind}}", "namespace":"{{json_response}}" }'
+
+  - name: save environment to param
+    set_fact:
+      rabbit_env: "{{json_response.resources[0].metadata.labels['bnhp.cicd/service-domain-env-type'] | default('dev') }}"
+  - name: set vhost-temp from namespace
+    set_fact:
+      vhostTemp: "{{namespace}}"
+  - name: convert vhostTemp to pattern
+    set_fact:
+      vhost: "{{vhostTemp|title | replace('-','')}}"
+
+  - debug: msg='{"job":{{job}},"error":"false","payload":{"msglog":"start","kind":"{{kind}}","vhost":"{{vhost}}","namespace":"{{namespace}}"}}'
+  - debug: msg='{"job":{{job}},"error":"false","payload":{"CRDInput":"{{internal}}"}}'
+
+
+  - name: set to "rabbitServerPath" for dev
+    set_fact: rabbitServerPath={{lookup('env','RabbitUrl_dev')}}
+    when: (rabbit_env == "dev")
+
+  - name: set to "rabbitServerPath" for staging
+    set_fact: rabbitServerPath={{lookup('env','RabbitUrl_staging')}}
+    when: (rabbit_env == "staging") 
+
+  - name: set to "rabbitServerPath" for preProd
+    set_fact: rabbitServerPath={{lookup('env','RabbitUrl_preProd')}}
+    when: (rabbit_env == "preprod") 
+
+  - name: set to "rabbitServerPath" for prod
+    set_fact: rabbitServerPath={{lookup('env','RabbitUrl_prod')}}
+    when: (rabbit_env == "prod") 
+
+  - name: check for DBG env
+    set_fact: 
+      rabbit_env: dbg
+      rabbitServerPath: "{{lookup('env','RabbitUrl_dbg')}}"
+    when: dbg is defined
+
+  - debug: msg='{"job":{{job}},"error":"false","payload":{"env":"{{rabbit_env}}"}}'
+
+# #exchange validation - 1
+  - name: Exchange validation - check valide patern
+    set_fact: 
+      exchangeValidation_ValidePatern: "{{item.exchange.name}}"
+    when: item.exchange.name is not regex("^[0-9a-z.]+$")
+    loop: "{{ internal }}"
+
+  - name: check if there is an error on "exchangeValidation_ValidePatern"
+    block:
+    - name: check if there is an error on "exchangeValidation_ValidePatern"
+      k8s_status:
+        api_version: falcon.bnhp.com/v1
+        kind: RabbitmqInternal
+        name: "{{ansible_operator_meta.name}}"
+        namespace: "{{namespace}}"
+        status:
+          operator_message: "Invalid input(valide patern) - exchange"
+          operator_status_code: 41   
+    - name: end with failure
+      fail:
+        msg: '{"job":{{job}},"error":"true","payload":{"errorCode":41,"errorMsg":"The exchange is not in the correct patern (exept only 0-9,a-z), Please check the value:{{exchangeValidation_ValidePatern}}"}}'   
+    when: exchangeValidation_ValidePatern is defined
+
+  - name: Exchange validation - dot counter
+    set_fact: 
+      exchangeValidation_DotCounter: "{{item.exchange.name}}"
+    when: (item.exchange.name | regex_findall('[.]') | length) >3
+    loop: "{{ internal }}"
+    
+  - name: check if there is an error on "exchangeValidation_DotCounter"
+    block:
+    - name: check if there is an error on "exchangeValidation_DotCounter"
+      k8s_status:
+        api_version: falcon.bnhp.com/v1
+        kind: RabbitmqInternal
+        name: "{{ansible_operator_meta.name}}"
+        namespace: "{{namespace}}"
+        status:
+          operator_message: "Invalid input(doc counter) - exchange"
+          operator_status_code: 42   
+    - name: end with failure
+      fail: 
+        msg: '{"job":{{job}},"error":"true","payload":{"errorCode":42,"errorMsg":"The exchange is not in the correct patern, number of dot(.) is:{{ exchangeValidation_DotCounter | regex_findall("[.]")| length }}, must be under 3. Please check the value of:{{exchangeValidation_DotCounter}}"}}'
+    when: exchangeValidation_DotCounter is defined    
+
+  - name: Exchange validation - check type options
+    set_fact: 
+      exchangeValidation_TypeOptions: "{{item.exchange.name}}"
+    when: (item.exchange.type != "direct") and (item.exchange.type != "fanout") and (item.exchange.type != "headers") and (item.exchange.type != "topic") and (item.exchange.type != "x-consistent-hash")
+    loop: "{{ internal }}"
+    
+  - name: check if there is an error on "exchangeValidation_TypeOptions"
+    block:
+    - name: check if there is an error on "exchangeValidation_TypeOptions"
+      k8s_status:
+        api_version: falcon.bnhp.com/v1
+        kind: RabbitmqInternal
+        name: "{{ansible_operator_meta.name}}"
+        namespace: "{{namespace}}"
+        status:
+          operator_message: "Invalid input(check type options) - exchange"
+          operator_status_code: 45   
+    - name: end with failure
+      fail: 
+        msg: '{"job":{{job}},"error":"true","payload":{"errorCode":45,"errorMsg":"Exchange-type must be - direct/fanout/headers/topic/x-consistent-hash for exchange:{{exchangeValidation_TypeOptions}}"}}'
+    when: exchangeValidation_TypeOptions is defined
+    
+#queue validation
+  - name: Queue validation - check valide patern
+    set_fact: 
+      queueValidation_ValidePatern: "{{item.1.name}}"
+    when: item.1.name is not regex("^[0-9a-z.]+$")
+    with_subelements:
+      - "{{ internal }}"
+      - queue
+    
+  - name: check if there is an error on "queueValidation_ValidePatern"
+    block:
+    - name: check if there is an error on "queueValidation_ValidePatern"
+      k8s_status:
+        api_version: falcon.bnhp.com/v1
+        kind: RabbitmqInternal
+        name: "{{ansible_operator_meta.name}}"
+        namespace: "{{namespace}}"
+        status:
+          operator_message: "Invalid input(check valide) - queue"
+          operator_status_code: 43  
+    - name: end with failure
+      fail: 
+        msg: '{"job":{{job}},"error":"true","payload":{"errorCode":43,"errorMsg":"The queue is not in the correct patern (exept only 0-9,a-z), Please check the value:{{queueValidation_ValidePatern}}"}}'
+    when: queueValidation_ValidePatern is defined   
+
+  - name: Queue validation - dot counter
+    set_fact: 
+      queueValidation_DotCounter: "{{item.1.name}}"
+    when: (item.1.name | regex_findall('[.]') | length) > 5
+    with_subelements:
+      - "{{ internal }}"
+      - queue
+    
+  - name: check if there is an error on "queueValidation_DotCounter"
+    block:
+    - name: check if there is an error on "queueValidation_DotCounter"
+      k8s_status:
+        api_version: falcon.bnhp.com/v1
+        kind: RabbitmqInternal
+        name: "{{ansible_operator_meta.name}}"
+        namespace: "{{namespace}}"
+        status:
+          operator_message: "Invalid input(doc counter) - queue"
+          operator_status_code: 44  
+    - name: end with failure
+      fail: 
+        msg: '{"job":{{job}},"error":"true","payload":{"errorCode":44,"errorMsg":"The queue is not in the correct patern, number of dot(.) is:{{ queueValidation_DotCounter | regex_findall("[.]")| length }}, must be under 5. Please check the value of:{{queueValidation_DotCounter}}"}}' 
+    when: queueValidation_DotCounter is defined    
+
+  - debug: msg='{"job":{{job}},"error":"false","payload":{"msg":"pass all validation successfully"}}'
+
+  - name: Create vHost
+    uri:
+      method: PUT
+      url: "{{rabbitServerPath}}/api/vhosts/{{vhost}}"
+      user: "{{user}}"
+      password: "{{password}}"
+      body: {"description":"virtual host description", "tags":"accounts,production"}
+      force_basic_auth: yes
+      return_content: yes
+      headers:
+        Accept: application/json
+      status_code: 201 , 204
+      body_format: json
+
+  - name: create queues - for "internal" case
+    uri:
+      method: PUT
+      url: "{{rabbitServerPath}}/api/queues/{{vhost}}/{{item.1.name}}"
+      user: "{{user}}"
+      password: "{{password}}"      
+      force_basic_auth: yes
+      return_content: yes
+      headers:
+        Accept: application/json
+      status_code: 201 , 204
+    with_subelements:
+      - "{{ internal }}"
+      - queue
+
+  - name: Attached exchange to vhost - for "internal"
+    uri:
+      method: PUT
+      url: "{{rabbitServerPath}}/api/exchanges/{{vhost}}/{{item.exchange.name}}"
+      user: "{{user}}"
+      password: "{{password}}"
+      body: {"type": "{{item.exchange.type}}","auto_delete":false,"durable":true,"internal":false,"arguments":{}}
+      force_basic_auth: yes
+      return_content: yes
+      headers:
+        Accept: application/json
+      status_code: 201 , 204
+      body_format: json  
+    loop: "{{ internal }}"
+
+  - name: Attached queues to vhost - for "internal"
+    uri:
+      method: PUT
+      url: "{{rabbitServerPath}}/api/queues/{{vhost}}/{{item.1.name}}"
+      user: "{{user}}"
+      password: "{{password}}"
+      force_basic_auth: yes
+      return_content: yes
+      headers:
+        Accept: application/json
+      status_code: 201 , 204     
+    with_subelements:
+      - "{{ internal }}"
+      - queue
+
+  - name: Attached bingings exchange with queues - for "internal"
+    uri:
+      method: POST
+      url: "{{rabbitServerPath}}/api/bindings/{{vhost}}/e/{{item.0.exchange.name}}/q/{{item.1.name}}"
+      user: "{{user}}"
+      password: "{{password}}"
+      body: {"arguments": {},"destination": "{{item.1.name}}","destination_type": "q","routing_key": "{{item.1.name}}","source": "{{item.0.exchange.name}}","vhost": "{{vhost}}"}
+      force_basic_auth: yes
+      return_content: yes
+      headers:
+        Accept: application/json
+      status_code: 201, 204
+      body_format: json      
+    with_subelements:
+      - "{{ internal }}"
+      - queue
+
+  - debug: msg='{"job":{{job}},"error":"false","payload":{"msg":"Successfully create all component on RabbitMq"}}'
+
+#Set lable for network policy
+  # - name: Set network policy
+  #   uri:
+  #     method: PATCH
+  #     url: "{{ocpServerPath}}/api/v1/namespaces/{{namespace}}"
+  #     body: {"apiVersion": "v1","kind": "Namespace","metadata": {"labels": {"rabbitmq-custom-manager-operator.bnhp.com/client": "true"}}}
+  #     return_content: yes
+  #     headers:
+  #       Accept: application/json
+  #       Authorization: "{{ocpAccessToken}}"
+  #       Content-Type: application/merge-patch+json
+  #     status_code: 200
+  #     body_format: json
+  #     validate_certs: false
+
+  - name: Set network policy
+    k8s_raw:
+      state: present
+      namespace: "{{namespace}}"
+      name: "{{namespace}}"
+      definition:
+        apiVersion: v1
+        kind: Namespace
+        metadata:
+          labels:
+            rabbitmq-custom-manager-operator.bnhp.com/client: "true"
+
+  - debug: msg='{"job":{{job}},"error":"false","payload":{"msg":"Set successfully network policy"}}'
+
+  - name: check if the NS is CD-NS
+    block:
+    - debug: msg='{"job":{{job}},"error":"false","payload":{"msg":"The NS is not CD-NS - going to delete vhost from RabbitMq"}}'
+    #- debug: msg="the NS is not CD-NS - going to delete vhost on rabbit"
+    - name: Delete Vhost from rabbit
+      uri:
+        method: DELETE
+        url: "{{rabbitServerPath}}/api/vhosts/{{vhost}}"
+        user: "{{user}}"
+        password: "{{password}}"
+        force_basic_auth: yes
+        return_content: yes
+        headers:
+          Accept: application/json
+        status_code: 201 , 204
+    when: (json_response.resources[0].metadata.annotations['openshift.io/node-selector'] is not defined) and (rabbit_env == "dev")
+
+
+  - name: update_status
+    k8s_status:
+      api_version: falcon.bnhp.com/v1
+      kind: RabbitmqInternal
+      name: "{{ansible_operator_meta.name}}"
+      namespace: "{{namespace}}"
+      status:
+        operator_status_code: 20
+        operator_message: "Successfully create an object on RabbitMq"
+
+  - debug: msg='{"job":{{job}},"error":"false","payload":{"msg":"Successfully create an objects on RabbitMq"}}'
+  - debug: msg='{"job":{{job}},"error":"false","payload":{"msglog":"end","kind":"{{kind}}","vhost":"{{vhost}}","namespace":"{{namespace}}"}}'
+
+
+
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\README.md
+-----------------------------------------------------
+**Links:**
+
+- Operator Code - repo:
+    https://gitlab.devops.poalim.bank/I0MN/rabbitmq-custom-manager-operator
+ 
+- Manifests - repo: 
+    https://gitlab.devops.poalim.bank/I0MN/rabbitmq-custom-manager-operator-manifests
+
+- Ocp NameSpace:
+    rabbitmq-custom-manager-operator
+
+- Splunk Dashboards:
+    https://tstsplunksh01.restest.bank:8000/en-US/app/wso2_edge_40620/rabbit_operator
+
+<br><br>
+
+**Generate operator for new ocp cluster:**
+1. Set new branch on "Manifests-repo" with the NameSpace - name.
+2. Set new ArgoCd app for this cluster
+2. Config the yamls as you want
+
+<br><br>
+**Make new opertor build:**
+1. Make the changes on "Operator Code - repo" - on master branch
+2. Run Ci/Cd on gitlab-tab with the variable <br>
+ ACTION:build
+3. New verstion of the operator will deplody to the artifctory - also the build number will be on "version.txt" file
+
+<br><br>
+**Update operator build on ocp cluster:**
+1. Go to "Operator Code - repo" - on master branch
+2. Run Ci/Cd on gitlab-tab with the variables: <br>
+    BRANCH_CLUSTER:CUSTER_NAME <br>
+    ACTION:release
+3. To run CD with custom build - add variable: <br>
+    CUSTOM_BUILD:CUSTOM_BUILD_ON_ARTIFACTORY
+<br><br>
+![alt text](arci.jpg)
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\requirements.yml
+-----------------------------------------------------
+---
+collections:
+  - name: community.kubernetes
+    version: "<1.0.0"
+  - operator_sdk.util
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\version.txt
+-----------------------------------------------------
+17166
+
+
+file Read:C:\Users\AP068\git\rabbitmq-custom-manager-operator\watches.yaml
+-----------------------------------------------------
+---
+# Use the 'create api' subcommand to add watches to this file.
+- version: v1
+  group: falcon.bnhp.com
+  kind: RabbitmqInternal
+  playbook: /opt/ansible/playbooks/RabbitMqInternal.yml
+#- version: v1
+#  group: falcon.bnhp.com
+#  kind: RabbitmqExternal
+#  playbook: /opt/ansible/playbooks/RabbitMqExternal.yml
+
+  #manageStatus: false
+
+  # FIXME: Specify the role or playbook for this resource.
+# +kubebuilder:scaffold:watch
+total files:77
